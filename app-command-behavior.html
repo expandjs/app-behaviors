@@ -1,0 +1,107 @@
+<!--
+@license
+Copyright (c) 2015 The expand.js authors. All rights reserved.
+This code may only be used under the BSD style license found at https://expandjs.github.io/LICENSE.txt
+The complete set of authors may be found at https://expandjs.github.io/AUTHORS.txt
+The complete set of contributors may be found at https://expandjs.github.io/CONTRIBUTORS.txt
+-->
+
+<!--
+A behavior used to add command capabilities on a web component.
+
+@behavior app-command-behavior
+@since 1.0.0
+@category behaviors
+@description A behavior used to add command capabilities on a web component
+@keywords expandjs, web app, web components
+
+@homepage https://expandjs.com/components/app-command-behavior
+@repository https://github.com/expandjs/app-behaviors
+@source https://github.com/expandjs/app-behaviors/blob/master/app-command-behavior.html
+
+@behavior xp-master-slave-behavior /bower_components/xp-elements/xp-master-slave-behavior.html
+-->
+
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../expandjs/expandjs.html">
+<link rel="import" href="../xp-elements/xp-master-slave-behavior.html">
+
+<script>
+    Polymer.APPCommandBehaviorImp = {
+
+        // CLASSES
+        classes: ['command'],
+
+        /*********************************************************************/
+
+        /**
+         * Must be redefined to set the execution strategy.
+         *
+         * @method execute
+         * @param {Object} [options]
+         * @param {Function} [callback]
+         * @abstract
+         */
+        execute(options, callback) {},
+
+        /*********************************************************************/
+
+        // PROPERTIES
+        properties: {
+
+            /**
+             * The command's name.
+             *
+             * @attribute name
+             * @type string
+             */
+            name: {
+                type: String,
+                value() { return XP.camelCase(this.tagName.slice(this.tagName.indexOf('-') + 1)); }
+            },
+
+            /**
+             * The application's store.
+             *
+             * @attribute store
+             * @type Element
+             * @readonly
+             */
+            store: {
+                master: '.store',
+                observer: '__storeChanged',
+                readOnly: true
+            }
+        },
+
+        /*********************************************************************/
+
+        // OBSERVER
+        __storeChanged(post) {
+
+            // Checking
+            if (!post) { return; }
+
+            // Let
+            let execute = this.execute;
+
+            // Setting
+            post[this.name] = function (options, callback) {
+
+                // Preparing
+                if (XP.isFunction(options)) { callback = options; options = {}; }
+
+                // Asserting
+                XP.assertArgument(XP.isVoid(options) || XP.isObject(options), 1, 'Object');
+
+                // Calling
+                execute.call(this, options || {}, XP.isFunction(callback) ? callback : function () {});
+            };
+        }
+    };
+
+    Polymer.APPCommandBehavior = [
+        Polymer.XPMasterSlaveBehavior,
+        Polymer.APPCommandBehaviorImp
+    ];
+</script>

@@ -1,0 +1,553 @@
+<!--
+@license
+Copyright (c) 2015 The expand.js authors. All rights reserved.
+This code may only be used under the BSD style license found at https://expandjs.github.io/LICENSE.txt
+The complete set of authors may be found at https://expandjs.github.io/AUTHORS.txt
+The complete set of contributors may be found at https://expandjs.github.io/CONTRIBUTORS.txt
+-->
+
+<!--
+A behavior used to add remote source reading capabilities on a web component.
+
+@behavior app-reader-behavior
+@since 1.0.0
+@category behaviors
+@description A behavior used to add remote source reading capabilities on a web component
+@keywords expandjs, web app, web components
+
+@homepage https://expandjs.com/components/app-reader-behavior
+@repository https://github.com/expandjs/app-behaviors
+@source https://github.com/expandjs/app-behaviors/blob/master/app-reader-behavior.html
+
+@behavior app-receiver-behavior /bower_components/app-behaviors/app-receiver-behavior.html
+-->
+
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../expandjs/expandjs.html">
+<link rel="import" href="app-receiver-behavior.html">
+
+<script>
+    Polymer.APPReaderBehaviorImp = {
+
+        // CLASSES
+        classes: ['reader'],
+
+        /*********************************************************************/
+
+        /**
+         * Fired when data has been read.
+         *
+         * @event app-reader-data
+         * @param {Array | Object} data
+         * @bubbles
+         */
+
+        /**
+         * Fired when an error is received.
+         *
+         * @event app-reader-error
+         * @param {Object} error
+         * @bubbles
+         */
+
+        /**
+         * Fired when the reader is about to refresh due to a successful write.
+         *
+         * @event app-reader-refresh
+         * @param {Array | Object} data
+         * @bubbles
+         * @cancelable
+         */
+
+        /**
+         * Fired when the reader state changes.
+         *
+         * @event app-reader-state
+         * @param {string} state
+         * @bubbles
+         */
+
+        /*********************************************************************/
+
+        /**
+         * Refreshes the reader.
+         *
+         * @method refresh
+         */
+        refresh() {
+
+            // Waterfall
+            XP.waterfall([
+                next => this.preserve === 'none' ? this.reset(next) : next(), // resetting
+                next => this.collection && this.readable && this.source.reauthorize(next), // reauthorizing
+                next => this.debounce('reading', next), // squashing
+                next => this.feed ? this.source.stream(this.collection, this.options, next) : this._read(next) // reading
+            ], (error, data) => {
+
+                // Ensuring
+                this.ensure('error', error || null);
+                this.ensure('data', this.keyBy && XP.isArray(data) ? XP.keyBy(data, item => item[this.keyBy]) : data || null);
+            });
+        },
+
+        /**
+         * Resets the reader.
+         *
+         * @method reset
+         * @param {Function} [callback]
+         */
+        reset(callback) {
+
+            // Asserting
+            XP.assertArgument(XP.isVoid(callback) || XP.isFunction(callback), 1, 'Function');
+
+            // Ensuring
+            this.ensure('data', null);
+            this.ensure('error', null);
+
+            // Callback
+            if (callback) { callback(); }
+        },
+
+        /*********************************************************************/
+
+        /**
+         * Must be redefined to set the `read` strategy.
+         *
+         * @method _read
+         * @param {Function} [callback]
+         * @abstract
+         * @private
+         */
+        _read(callback) {},
+
+        /*********************************************************************/
+
+        // OBSERVERS
+        observers: [
+            '__optionsChanged(app, collection, keyBy, options, source, token)'
+        ],
+
+        // PROPERTIES
+        properties: {
+
+            /**
+             * The remote collection.
+             *
+             * @attribute collection
+             * @type string
+             */
+            collection: {
+                type: String,
+                value: null
+            },
+
+            /**
+             * If set to true, the connection is open.
+             *
+             * @attribute connected
+             * @type boolean
+             * @default false
+             * @readonly
+             */
+            connected: {
+                computed: '_computeFrom(source.connected)',
+                type: Boolean
+            },
+
+            /**
+             * If set to true, the data count will be returned instead of the data itself.
+             *
+             * @attribute count
+             * @type boolean
+             * @default false
+             */
+            count: {
+                type: Boolean,
+                value: false
+            },
+
+            /**
+             * The read data.
+             *
+             * @attribute data
+             * @type Array | Object | number
+             * @notifies
+             * @readonly
+             */
+            data: {
+                notify: true,
+                observer: '__dataChanged',
+                readOnly: true,
+                type: Object,
+                value: null
+            },
+
+            /**
+             * The amount of ms to wait before a read.
+             *
+             * @attribute delay
+             * @type number
+             */
+            delay: {
+                type: Number,
+                value: null
+            },
+
+            /**
+             * If set to true, the read data will be duplicate free.
+             *
+             * @attribute distinct
+             * @type string
+             */
+            distinct: {
+                type: String,
+                value: null
+            },
+
+            /**
+             * The read error.
+             *
+             * @attribute error
+             * @type Object
+             * @notifies
+             * @readonly
+             */
+            error: {
+                notify: true,
+                observer: '__errorChanged',
+                readOnly: true,
+                type: Object,
+                value: null
+            },
+
+            /**
+             * The primary key of a record to exclude.
+             *
+             * @attribute except
+             * @type string
+             */
+            except: {
+                type: String,
+                value: null
+            },
+
+            /**
+             * The data fields to exclude.
+             *
+             * @attribute exclude
+             * @type string
+             */
+            exclude: {
+                type: String,
+                value: null
+            },
+
+            /**
+             * The live streaming feed's identifier.
+             *
+             * @attribute feed
+             * @type string
+             */
+            feed: {
+                computed: '_computeFeed(stream)',
+                type: String
+            },
+
+            /**
+             * The field used to group data by.
+             *
+             * @attribute group-by
+             * @type string
+             */
+            groupBy: {
+                type: String,
+                value: null
+            },
+
+            /**
+             * The data fields to include.
+             *
+             * @attribute include
+             * @type string
+             */
+            include: {
+                type: String,
+                value: null
+            },
+
+            /**
+             * The field used as key instead of numerical indexes.
+             *
+             * @attribute key-by
+             * @type string
+             */
+            keyBy: {
+                type: String,
+                value: null
+            },
+
+            /**
+             * The maximum number of records to read.
+             *
+             * @attribute limit
+             * @type number
+             */
+            limit: {
+                type: Number,
+                value: null
+            },
+
+            /**
+             * The request options.
+             *
+             * @attribute options
+             * @type Object
+             * @readonly
+             */
+            options: {
+                computed: '_computeOptions(count, distinct, except, exclude, feed, groupBy, include, limit, order, orderBy, pk, skip, where)',
+                type: Object
+            },
+
+            /**
+             * The read order.
+             *
+             * @attribute order
+             * @type "asc" | "desc" | "random"
+             */
+            order: {
+                type: String,
+                value: null
+            },
+
+            /**
+             * The field used to order data by.
+             *
+             * @attribute order-by
+             * @type string
+             */
+            orderBy: {
+                type: String,
+                value: null
+            },
+
+            /**
+             * The primary key of the record to read.
+             *
+             * @attribute pk
+             * @type string
+             */
+            pk: {
+                type: String,
+                value: null
+            },
+
+            /**
+             * Specifies how data should be preserved:
+             *
+             * - `always`: data will never be emptied, it will only be replaced by new data
+             * - `normal`: data will be emptied only when the request options change
+             * - `none`: data will be emptied before each read
+             *
+             * @attribute preserve
+             * @type "always" | "normal" | "none"
+             */
+            preserve: {
+                type: String,
+                value: 'normal'
+            },
+
+            /**
+             * If set to true, the reader is able to read.
+             *
+             * @attribute readable
+             * @type boolean
+             * @default false
+             */
+            readable: {
+                observer: '__readableChanged',
+                type: Boolean,
+                value: false
+            },
+
+            /**
+             * The number of records to skip.
+             *
+             * @attribute skip
+             * @type number
+             */
+            skip: {
+                type: Number,
+                value: null
+            },
+
+            /**
+             * The reader's source.
+             *
+             * @attribute source
+             * @type Element
+             * @readonly
+             */
+            source: {
+                master: '.source',
+                observer: '__sourceChanged',
+                readOnly: true
+            },
+
+            /**
+             * The reader's state.
+             *
+             * @attribute state
+             * @type string
+             * @notifies
+             * @readonly
+             */
+            state: {
+                notify: true,
+                observer: '_stateChanged',
+                reflectToAttribute: true,
+                type: String
+            },
+
+            /**
+             * If set to true, the reader will listen for updates.
+             *
+             * @attribute stream
+             * @type boolean
+             * @default false
+             */
+            stream: {
+                type: Boolean,
+                value: false
+            },
+
+            /**
+             * The streaming options.
+             *
+             * @attribute streaming
+             * @type Object
+             * @readonly
+             */
+            streaming: {
+                computed: '_computeStreaming(collection, feed, readable, source)',
+                observer: '__streamingChanged',
+                type: Object
+            },
+
+            /**
+             * The current access token.
+             *
+             * @attribute token
+             * @type string
+             * @readonly
+             */
+            token: {
+                computed: '_computeFrom(source.token)',
+                type: String
+            },
+
+            /**
+             * The filter applied when reading.
+             *
+             * @attribute where
+             * @type string
+             */
+            where: {
+                type: String,
+                value: null
+            }
+        },
+
+        /*********************************************************************/
+
+        // COMPUTER
+        _computeFeed(stream) {
+            return stream ? XP.uuid() : null;
+        },
+
+        // COMPUTER
+        _computeOptions() {
+            let options = ['count', 'distinct', 'except', 'exclude', 'feed', 'groupBy', 'include', 'limit', 'order', 'orderBy', 'pk', 'skip', 'where'], result = {};
+            options.forEach(option => !XP.isUseful(this[option]) || XP.isFalse(this[option]) || (result[option] = this[option]));
+            return result;
+        },
+
+        // COMPUTER
+        _computeStreaming(collection, feed, readable) {
+            return collection && feed && readable ? {collection: collection, feed: feed} : null;
+        },
+
+        /*********************************************************************/
+
+        // OBSERVER
+        __dataChanged(post, pre) {
+
+            // Firing
+            if (XP.isDefined(pre) && !this.error) { this.fire('app-reader-data', {data: post}); }
+        },
+
+        // OBSERVER
+        __errorChanged(post) {
+
+            // Firing
+            if (post) { this.fire('app-reader-error', {error: post}); }
+        },
+
+        // OBSERVER
+        _stateChanged(post) {
+
+            // Firing
+            if (post !== 'idle') { this.fire('app-reader-state', {state: post}); }
+        },
+
+        // OBSERVER
+        __streamingChanged(post, pre) {
+
+            // Interrupting
+            if (pre) { this.source.interrupt(pre.collection, pre.feed); }
+        },
+
+        // OBSERVER
+        __optionsChanged() {
+
+            // Resetting
+            if (this.preserve !== 'always') { this.reset(); }
+
+            // Refreshing
+            this.debounce('refreshing', this.refresh);
+        },
+
+        // OBSERVER
+        __readableChanged() {
+
+            // Refreshing
+            this.debounce('refreshing', this.refresh);
+        },
+
+        // OBSERVER
+        __sourceChanged(post, pre) {
+
+            // Listening
+            if (pre) { this.unlisten(pre, 'app-source-write', '__handleWrite'); }
+            if (post) { this.listen(post, 'app-source-write', '__handleWrite'); }
+        },
+
+        /*********************************************************************/
+
+        // HANDLER
+        __handleWrite(event) {
+
+            // Firing
+            if (this.fire('app-reader-refresh', {data: this.data}, {cancelable: true}).defaultPrevented) { return; }
+
+            // Refreshing
+            if (!this.feed && this.collection === event.detail.resource) { this.refresh(); }
+        }
+    };
+
+    Polymer.APPReaderBehavior = [
+        Polymer.APPReceiverBehavior,
+        Polymer.APPReaderBehaviorImp
+    ];
+</script>

@@ -1,0 +1,683 @@
+<!--
+@license
+Copyright (c) 2015 The expand.js authors. All rights reserved.
+This code may only be used under the BSD style license found at https://expandjs.github.io/LICENSE.txt
+The complete set of authors may be found at https://expandjs.github.io/AUTHORS.txt
+The complete set of contributors may be found at https://expandjs.github.io/CONTRIBUTORS.txt
+-->
+
+<!--
+A behavior used to add remote source interaction on a web component.
+
+@behavior app-source-behavior
+@since 1.0.0
+@category behaviors
+@description A behavior used to add remote source interaction on a web component
+@keywords expandjs, web app, web components
+
+@homepage https://expandjs.com/components/app-source-behavior
+@repository https://github.com/expandjs/app-behaviors
+@source https://github.com/expandjs/app-behaviors/blob/master/app-source-behavior.html
+
+@behavior app-receiver-behavior /bower_components/app-behaviors/app-receiver-behavior.html
+-->
+
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../expandjs/expandjs.html">
+<link rel="import" href="app-receiver-behavior.html">
+
+<script>
+    Polymer.APPSourceBehaviorImp = {
+
+        // CLASSES
+        classes: ['source'],
+
+        /*********************************************************************/
+
+        /**
+         * Fired when an error is received.
+         *
+         * @event app-source-error
+         * @param {Object} error
+         * @bubbles
+         */
+
+        /**
+         * Fired when data has been wrote.
+         *
+         * @event app-source-write
+         * @param {string} resource
+         * @bubbles
+         */
+
+        /*********************************************************************/
+
+        /**
+         * Submits a `create` request.
+         *
+         * @method create
+         * @param {string} collection
+         * @param {Object} data
+         * @param {Function} [callback]
+         */
+        create(collection, data, callback) {
+
+            // Preparing
+            if (XP.isVoid(callback)) { callback = function () {}; }
+
+            // Asserting
+            XP.assertArgument(XP.isString(collection, true), 1, 'string');
+            XP.assertArgument(XP.isObject(data), 2, 'Object');
+            XP.assertArgument(XP.isFunction(callback), 3, 'Function');
+
+            // Waterfall
+            XP.waterfall([
+                next => this.reauthorize(next), // reauthorizing
+                next => this._create(collection, data, next) // executing
+            ], callback);
+        },
+
+        /**
+         * Submits a `delete` request.
+         *
+         * @method delete
+         * @param {string} collection
+         * @param {Object} options
+         *   @param {Array | string} options.pk
+         *   @param {Array | string} [options.etag]
+         *   @param {string} [options.locale]
+         * @param {Function} [callback]
+         */
+        delete(collection, options, callback) {
+
+            // Preparing
+            if (XP.isVoid(callback)) { callback = function () {}; }
+
+            // Asserting
+            XP.assertArgument(XP.isString(collection, true), 1, 'string');
+            XP.assertArgument(XP.isObject(options), 2, 'Object');
+            XP.assertArgument(XP.isFunction(callback), 3, 'Function');
+
+            // Waterfall
+            XP.waterfall([
+                next => this.reauthorize(next), // reauthorizing
+                next => this._delete(collection, options || {}, next) // executing
+            ], callback);
+        },
+
+        /**
+         * Submits a `read` request.
+         *
+         * @method read
+         * @param {string} collection
+         * @param {Object} [options]
+         *   @param {Array | string} [options.pk]
+         *   @param {Array | string} [options.etag]
+         *   @param {Array | string} [options.exclude]
+         *   @param {Array | string} [options.groupBy]
+         *   @param {Array | string} [options.include]
+         *   @param {Object | string} [options.where]
+         *   @param {string} [options.except]
+         *   @param {string} [options.locale]
+         *   @param {string} [options.order]
+         *   @param {string} [options.orderBy]
+         *   @param {number} [options.limit]
+         *   @param {number} [options.skip]
+         *   @param {boolean} [options.distinct = false]
+         *   @param {boolean} [options.count = false]
+         * @param {Function} [callback]
+         */
+        read(collection, options, callback) {
+
+            // Preparing
+            if (XP.isFunction(options)) { callback = options; options = undefined; }
+            if (XP.isVoid(callback)) { callback = function () {}; }
+
+            // Asserting
+            XP.assertArgument(XP.isString(collection, true), 1, 'string');
+            XP.assertArgument(XP.isVoid(options) || XP.isObject(options), 2, 'Object');
+            XP.assertArgument(XP.isFunction(callback), 3, 'Function');
+
+            // Waterfall
+            XP.waterfall([
+                next => this.reauthorize(next), // reauthorizing
+                next => this._read(collection, options || {}, next) // executing
+            ], callback);
+        },
+
+        /**
+         * Submits a generic request.
+         *
+         * @method request
+         * @param {string} method
+         * @param {string} procedure
+         * @param {Object} [data]
+         * @param {Object} [options]
+         * @param {Function} [callback]
+         */
+        request(method, procedure, data, options, callback) {
+
+            // Preparing
+            if (XP.isFunction(data)) { callback = data; options = undefined; data = undefined; }
+            if (XP.isFunction(options)) { callback = options; options = undefined; }
+            if (XP.isVoid(callback)) { callback = function () {}; }
+
+            // Asserting
+            XP.assertArgument(XP.isString(method, true), 1, 'string');
+            XP.assertArgument(XP.isString(procedure, true), 2, 'string');
+            XP.assertArgument(XP.isVoid(data) || XP.isObject(data), 3, 'Object');
+            XP.assertArgument(XP.isVoid(options) || XP.isObject(options), 4, 'Object');
+            XP.assertArgument(XP.isFunction(callback), 5, 'Function');
+
+            // Waterfall
+            XP.waterfall([
+                next => this.reauthorize(next), // reauthorizing
+                next => this._request(method, procedure, data, options || {}, next) // executing
+            ], callback);
+        },
+
+        /**
+         * Submits an `update` request.
+         *
+         * @method update
+         * @param {string} collection
+         * @param {Object} data
+         * @param {Object} options
+         *   @param {Array | string} options.pk
+         *   @param {Array | string} [options.etag]
+         *   @param {string} [options.locale]
+         *   @param {boolean} [options.replace = false]
+         * @param {Function} [callback]
+         */
+        update(collection, data, options, callback) {
+
+            // Preparing
+            if (XP.isVoid(callback)) { callback = function () {}; }
+
+            // Asserting
+            XP.assertArgument(XP.isString(collection, true), 1, 'string');
+            XP.assertArgument(XP.isObject(data), 2, 'Object');
+            XP.assertArgument(XP.isObject(options), 3, 'Object');
+            XP.assertArgument(XP.isFunction(callback), 4, 'Function');
+
+            // Waterfall
+            XP.waterfall([
+                next => this.reauthorize(next), // reauthorizing
+                next => this._update(collection, data, options || {}, next) // executing
+            ], callback);
+        },
+
+        /*********************************************************************/
+
+        /**
+         * Discards an event listener.
+         *
+         * @method discard
+         * @param {string} channel
+         * @param {string} [event]
+         * @param {Function} [handler]
+         */
+        discard(channel, event, handler) {
+
+            // Preparing
+            if (XP.isFunction(event)) { handler = event; event = channel; channel = undefined; }
+
+            // Asserting
+            XP.assertArgument(XP.isVoid(channel) || XP.isString(channel, true), 1, 'string');
+            XP.assertArgument(XP.isString(event, true), 2, 'string');
+            XP.assertArgument(XP.isVoid(handler) || XP.isFunction(handler), 3, 'Function');
+
+            // Discarding
+            this._discard(channel, event, handler);
+        },
+
+        /**
+         * Closes a live `stream` feed.
+         *
+         * @method interrupt
+         * @param {string} collection
+         * @param {string} feed
+         * @param {Function} [callback]
+         */
+        interrupt(collection, feed, callback) {
+
+            // Preparing
+            if (XP.isVoid(callback)) { callback = function () {}; }
+
+            // Asserting
+            XP.assertArgument(XP.isString(collection, true), 1, 'string');
+            XP.assertArgument(XP.isString(feed, true), 2, 'string');
+            XP.assertArgument(XP.isFunction(callback), 3, 'Function');
+
+            // Executing
+            this._interrupt(collection, feed, callback);
+        },
+
+        /**
+         * Leaves the specified `channel`.
+         *
+         * @method leave
+         * @param {string} channel
+         * @param {Function} [callback]
+         */
+        leave(channel, callback) {
+
+            // Preparing
+            if (XP.isVoid(callback)) { callback = function () {}; }
+
+            // Asserting
+            XP.assertArgument(XP.isString(channel, true), 1, 'string');
+            XP.assertArgument(XP.isFunction(callback), 2, 'Function');
+
+            // Leaving
+            this._leave(channel, callback);
+        },
+
+        /**
+         * Adds an event listener.
+         *
+         * @method on
+         * @param {string} channel
+         * @param {string} [event]
+         * @param {Function} [handler]
+         */
+        on(channel, event, handler) {
+
+            // Preparing
+            if (XP.isFunction(event)) { handler = event; event = channel; channel = undefined; }
+
+            // Asserting
+            XP.assertArgument(XP.isVoid(channel) || XP.isString(channel, true), 1, 'string');
+            XP.assertArgument(XP.isString(event, true), 2, 'string');
+            XP.assertArgument(XP.isFunction(handler), 3, 'Function');
+
+            // Listening
+            this._on(channel, event, handler);
+        },
+
+        /**
+         * Adds a one time event listener.
+         *
+         * @method once
+         * @param {string} channel
+         * @param {string} [event]
+         * @param {Function} [handler]
+         */
+        once(channel, event, handler) {
+
+            // Preparing
+            if (XP.isFunction(event)) { handler = event; event = channel; channel = undefined; }
+
+            // Asserting
+            XP.assertArgument(XP.isVoid(channel) || XP.isString(channel, true), 1, 'string');
+            XP.assertArgument(XP.isString(event, true), 2, 'string');
+            XP.assertArgument(XP.isFunction(handler), 3, 'Function');
+
+            // Listening
+            this._once(channel, event, handler);
+        },
+
+        /**
+         * Sends `data` to the `channel`, invoking the specified `event`.
+         *
+         * @method send
+         * @param {string} channel
+         * @param {string} event
+         * @param {Object}  [data]
+         * @param {Function} [callback]
+         */
+        send(channel, event, data, callback) {
+
+            // Preparing
+            if (XP.isFunction(data)) { callback = data; data = undefined; }
+            if (XP.isVoid(callback)) { callback = function () {}; }
+
+            // Asserting
+            XP.assertArgument(XP.isString(channel, true), 1, 'string');
+            XP.assertArgument(XP.isString(event, true), 2, 'string');
+            XP.assertArgument(XP.isVoid(data) || XP.isObject(data), 3, 'Object');
+            XP.assertArgument(XP.isFunction(callback), 4, 'Function');
+
+            // Sending
+            this._send(channel, event, data, callback);
+        },
+
+        /**
+         * Opens a live `stream` feed.
+         *
+         * @method stream
+         * @param {string} collection
+         * @param {Object} options
+         *   @param {string} options.feed
+         *   @param {Array | string} [options.pk]
+         *   @param {Array | string} [options.exclude]
+         *   @param {Array | string} [options.include]
+         *   @param {Object | string} [options.where]
+         *   @param {string} [options.except]
+         *   @param {string} [options.feed]
+         *   @param {string} [options.locale]
+         *   @param {string} [options.order]
+         *   @param {string} [options.orderBy]
+         *   @param {number} [options.limit]
+         *   @param {number} [options.skip]
+         *   @param {boolean} [options.changes = false]
+         * @param {Function} [callback]
+         */
+        stream(collection, options, callback) {
+
+            // Preparing
+            if (XP.isFunction(options)) { callback = options; options = undefined; }
+            if (XP.isVoid(callback)) { callback = function () {}; }
+
+            // Asserting
+            XP.assertArgument(XP.isString(collection, true), 1, 'string');
+            XP.assertArgument(XP.isVoid(options) || XP.isObject(options), 2, 'Object');
+            XP.assertArgument(XP.isFunction(callback), 3, 'Function');
+
+            // Executing
+            this._stream(collection, options || {}, callback);
+        },
+
+        /*********************************************************************/
+
+        /**
+         * Refreshes the access token.
+         *
+         * @method reauthorize
+         * @param {Function} [callback]
+         */
+        reauthorize(callback) {
+
+            // Preparing
+            if (XP.isVoid(callback)) { callback = function () {}; }
+
+            // Asserting
+            XP.assertArgument(XP.isFunction(callback), 1, 'Function');
+
+            // Pushing
+            if (this.get('auth.expired')) { this.push('callbacks', callback); } else { callback(); return; }
+
+            // Ensuring
+            if (!this.reauthorizing) { this.ensure('reauthorizing', true); } else { return; }
+
+            // Reauthorizing
+            this.auth.reauthorize(error => {
+
+                // Ensuring
+                this.ensure('reauthorizing', false);
+                this.ensure('callbacks', this.callbacks.filter(callback => callback(error) && false));
+            });
+        },
+
+        /*********************************************************************/
+
+        /**
+         * Must be redefined to set the `create` strategy.
+         *
+         * @method _create
+         * @param {string} collection
+         * @param {Object} data
+         * @param {Function} [callback]
+         * @abstract
+         * @private
+         */
+        _create(collection, data, callback) {},
+
+        /**
+         * Must be redefined to set the `delete` strategy.
+         *
+         * @method _delete
+         * @param {string} collection
+         * @param {Object} options
+         * @param {Function} [callback]
+         * @abstract
+         * @private
+         */
+        _delete(collection, options, callback) {},
+
+        /**
+         * Must be redefined to set the `read` strategy.
+         *
+         * @method _read
+         * @param {string} collection
+         * @param {Object} options
+         * @param {Function} [callback]
+         * @abstract
+         * @private
+         */
+        _read(collection, options, callback) {},
+
+        /**
+         * Must be redefined to set the `request` strategy.
+         *
+         * @method _request
+         * @param {string} method
+         * @param {string} procedure
+         * @param {Object} [data]
+         * @param {Object} [options]
+         * @param {Function} [callback]
+         * @abstract
+         * @private
+         */
+        _request(method, procedure, data, options, callback) {},
+
+        /**
+         * Must be redefined to set the `update` strategy.
+         *
+         * @method _update
+         * @param {string} collection
+         * @param {Object} data
+         * @param {Object} options
+         * @param {Function} [callback]
+         * @abstract
+         * @private
+         */
+        _update(collection, data, options, callback) {},
+
+        /*********************************************************************/
+
+        /**
+         * Must be redefined to set the `discard` strategy.
+         *
+         * @method _discard
+         * @param {string} channel
+         * @param {string} [event]
+         * @param {Function} [handler]
+         * @abstract
+         * @private
+         */
+        _discard(channel, event, handler) {},
+
+        /**
+         * Must be redefined to set the `interrupt` strategy.
+         *
+         * @method _interrupt
+         * @param {string} collection
+         * @param {string} feed
+         * @param {Function} [callback]
+         * @abstract
+         * @private
+         */
+        _interrupt(collection, feed, callback) {},
+
+        /**
+         * Must be redefined to set the `leave` strategy.
+         *
+         * @method _leave
+         * @param {string} channel
+         * @param {Function} [callback]
+         * @abstract
+         * @private
+         */
+        _leave(channel, callback) {},
+
+        /**
+         * Must be redefined to set the `on` strategy.
+         *
+         * @method _on
+         * @param {string} channel
+         * @param {string} [event]
+         * @param {Function} [handler]
+         * @abstract
+         * @private
+         */
+        _on(channel, event, handler) {},
+
+        /**
+         * Must be redefined to set the `once` strategy.
+         *
+         * @method _once
+         * @param {string} channel
+         * @param {string} [event]
+         * @param {Function} [handler]
+         * @abstract
+         * @private
+         */
+        _once(channel, event, handler) {},
+
+        /**
+         * Must be redefined to set the `send` strategy.
+         *
+         * @method _send
+         * @param {string} channel
+         * @param {string} event
+         * @param {Object} [data]
+         * @param {Function} [callback]
+         * @abstract
+         * @private
+         */
+        _send(channel, event, data, callback) {},
+
+        /**
+         * Must be redefined to set the `stream` strategy.
+         *
+         * @method _stream
+         * @param {string} collection
+         * @param {Object} options
+         * @param {Function} [callback]
+         * @abstract
+         * @private
+         */
+        _stream(collection, options, callback) {},
+
+        /*********************************************************************/
+
+        // PROPERTIES
+        properties: {
+
+            /**
+             * The source's auth.
+             *
+             * @attribute auth
+             * @type Element
+             * @readonly
+             */
+            auth: {
+                readOnly: true
+            },
+
+            /**
+             * The reauthorization callbacks.
+             *
+             * @attribute callbacks
+             * @type Array
+             * @readonly
+             */
+            callbacks: {
+                readOnly: true,
+                type: Array,
+                value: function () { return []; }
+            },
+
+            /**
+             * If set to true, the connection is open.
+             *
+             * @attribute connected
+             * @type boolean
+             * @default false
+             * @notifies
+             * @readonly
+             */
+            connected: {
+                notify: true,
+                observer: '_notifyConnected',
+                reflectToAttribute: true,
+                type: Boolean,
+                value: false
+            },
+
+            /**
+             * The source's name.
+             *
+             * @attribute name
+             * @type string
+             * @default ""
+             */
+            name: {
+                reflectToAttribute: true,
+                type: String,
+                value: ''
+            },
+
+            /**
+             * The source's readers.
+             *
+             * @attribute readers
+             * @type Array
+             * @readonly
+             */
+            readers: {
+                readOnly: true,
+                slaves: '.reader',
+                type: Array,
+                value() { return []; }
+            },
+
+            /**
+             * If set to true, the reauthorization is running.
+             *
+             * @attribute reauthorizing
+             * @type boolean
+             * @default false
+             * @readonly
+             */
+            reauthorizing: {
+                readOnly: true,
+                type: Boolean,
+                value: false
+            },
+
+            /**
+             * The current access token.
+             *
+             * @attribute token
+             * @type string
+             * @readonly
+             */
+            token: {
+                computed: '_computeToken(name, app.auth.*)',
+                observer: '_notifyToken',
+                type: String,
+                value: null
+            }
+        },
+
+        /*********************************************************************/
+
+        // COMPUTER
+        _computeToken(name) {
+            return (name && this.get(`app.auth.${name}`)) || null;
+        },
+
+        /*********************************************************************/
+
+        // NOTIFIER
+        _notifyConnected(post) { this.notifyAll(this.readers || [], 'source.connected', post); },
+        _notifyToken(post) { this.notifyAll(this.readers || [], 'source.token', post); }
+    };
+
+    Polymer.APPSourceBehavior = [
+        Polymer.APPReceiverBehavior,
+        Polymer.APPSourceBehaviorImp
+    ];
+</script>

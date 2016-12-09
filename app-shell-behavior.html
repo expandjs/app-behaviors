@@ -1,0 +1,165 @@
+<!--
+@license
+Copyright (c) 2015 The expand.js authors. All rights reserved.
+This code may only be used under the BSD style license found at https://expandjs.github.io/LICENSE.txt
+The complete set of authors may be found at https://expandjs.github.io/AUTHORS.txt
+The complete set of contributors may be found at https://expandjs.github.io/CONTRIBUTORS.txt
+-->
+
+<!--
+A behavior used to add shell capabilities on a web component.
+
+@behavior app-shell-behavior
+@since 1.0.0
+@category behaviors
+@description A behavior used to add shell capabilities on a web component
+@keywords expandjs, web app, web components
+
+@homepage https://expandjs.com/components/app-shell-behavior
+@repository https://github.com/expandjs/app-behaviors
+@source https://github.com/expandjs/app-behaviors/blob/master/app-shell-behavior.html
+
+@behavior xp-master-slave-behavior /bower_components/xp-elements/xp-master-slave-behavior.html
+@behavior app-locale-behavior /bower_components/app-behaviors/app-locale-behavior.html
+-->
+
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../expandjs/expandjs.html">
+<link rel="import" href="../xp-elements/xp-master-slave-behavior.html">
+<link rel="import" href="app-locale-behavior.html">
+
+<script>
+    Polymer.APPShellBehaviorImp = {
+
+        // CLASSES
+        classes: ['shell'],
+
+        /*********************************************************************/
+
+        /**
+         * Forwards a command invocation to the application's store.
+         *
+         * @method forward
+         * @param {string} command
+         * @param {Object} [options]
+         * @param {Function} [callback]
+         */
+        forward(command, options, callback) {
+
+            // Asserting
+            XP.assertArgument(XP.isString(command, true), 1, 'string');
+            XP.assertArgument(!command.startsWith('_'), 1, 'public');
+
+            // Warning
+            if (!XP.isFunction(this.store[command])) { console.warn(`[${this.store.tagName.toLowerCase()}]:${command} is not defined.`); }
+
+            // Executing
+            return XP.call(this.store, command, options, callback);
+        },
+
+        /*********************************************************************/
+
+        // PROPERTIES
+        properties: {
+
+            /**
+             * The application's state.
+             *
+             * @attribute app
+             * @type Object
+             * @notifies
+             * @readonly
+             */
+            app: {
+                notify: true,
+                readOnly: true,
+                type: Object
+            },
+
+            /**
+             * The application's namespace.
+             *
+             * @attribute namespace
+             * @type string
+             * @readonly
+             */
+            namespace: {
+                readOnly: true,
+                type: String,
+                value() { return XP.lowerCase(this.tagName.slice(0, this.tagName.indexOf('-'))); }
+            },
+
+            /**
+             * The application's store.
+             *
+             * @attribute store
+             * @type Element
+             * @readonly
+             */
+            store: {
+                observer: '__storeChanged',
+                slave: '.store',
+                readOnly: true
+            }
+        },
+
+        /*********************************************************************/
+
+        // OBSERVER
+        __storeChanged(post, pre) {
+
+            // Linking
+            if (pre) { this.unlinkProperties('app', 'app', pre); }
+            if (post) { this.linkProperties('app', 'app', post); }
+
+            // Ensuring
+            this.ensure('app', post && post.app);
+        },
+
+        /*********************************************************************/
+
+        // LISTENER
+        attached() {
+
+            // Listening
+            this.listen(window, 'app-i18n', '__handleI18n');
+            this.listen(window, 'app-meta', '__handleMeta');
+        },
+
+        // OBSERVER
+        detached() {
+
+            // Unlistening
+            this.unlisten(window, 'app-i18n', '__handleI18n');
+            this.unlisten(window, 'app-meta', '__handleMeta');
+        },
+
+        /*********************************************************************/
+
+        // HANDLER
+        __handleI18n(event) {
+
+            // Checking
+            if (event.detail.namespace !== this.namespace) { return; }
+
+            // Notifying
+            this.notifyPath(`app.i18n.${event.detail.locale}`, event.detail.data);
+        },
+
+        // HANDLER
+        __handleMeta(event) {
+
+            // Checking
+            if (event.detail.namespace !== this.namespace) { return; }
+
+            // Notifying
+            this.notifyPath(`app.meta.${event.detail.name}`, event.detail.data);
+        }
+    };
+
+    Polymer.APPShellBehavior = [
+        Polymer.XPMasterSlaveBehavior,
+        Polymer.APPLocaleBehavior,
+        Polymer.APPShellBehaviorImp
+    ];
+</script>

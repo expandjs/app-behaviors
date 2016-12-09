@@ -1,0 +1,433 @@
+<!--
+@license
+Copyright (c) 2015 The expand.js authors. All rights reserved.
+This code may only be used under the BSD style license found at https://expandjs.github.io/LICENSE.txt
+The complete set of authors may be found at https://expandjs.github.io/AUTHORS.txt
+The complete set of contributors may be found at https://expandjs.github.io/CONTRIBUTORS.txt
+-->
+
+<!--
+A behavior used to add authentication capabilities on a web component.
+
+@behavior app-auth-behavior
+@since 1.0.0
+@category behaviors
+@description A behavior used to add authentication capabilities on a web component
+@keywords expandjs, web app, web components
+
+@homepage https://expandjs.com/components/app-auth-behavior
+@repository https://github.com/expandjs/app-behaviors
+@source https://github.com/expandjs/app-behaviors/blob/master/app-auth-behavior.html
+
+@behavior xp-master-slave-behavior /bower_components/xp-elements/xp-master-slave-behavior.html
+-->
+
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../expandjs/expandjs.html">
+<link rel="import" href="../xp-elements/xp-master-slave-behavior.html">
+
+<script>
+    Polymer.APPAuthBehaviorImp = {
+
+        // CLASSES
+        classes: ['auth'],
+
+        /*********************************************************************/
+
+        /**
+         * Fired when an authorization succeeds.
+         *
+         * @event app-authorize
+         * @param {string} namespace
+         * @param {string} authenticator
+         * @param {string} accessToken
+         * @param {Date} expirationDate
+         * @bubbles
+         */
+
+        /**
+         * Fired when an authorization fails.
+         *
+         * @event app-auth-error
+         * @param {string} namespace
+         * @param {string} authenticator
+         * @param {Object} error
+         * @bubbles
+         */
+
+        /**
+         * Fired when an unauthorization succeeds.
+         *
+         * @event app-unauthorize
+         * @param {string} namespace
+         * @param {string} authenticator
+         * @param {string} accessToken
+         * @bubbles
+         */
+
+        /*********************************************************************/
+
+        /**
+         * Sends an `authorize` request.
+         *
+         * @method authorize
+         * @param {Object} options
+         * @param {Function} [callback]
+         */
+        authorize(options, callback) {
+
+            // Asserting
+            XP.assertArgument(XP.isObject(options), 1, 'Object');
+            XP.assertArgument(XP.isVoid(callback) || XP.isFunction(callback), 2, 'Function');
+
+            // Executing
+            this._authorize(options, (err, res) => {
+
+                // Firing
+                if (err) { this.fire('app-auth-error', {namespace: this.namespace, authenticator: this.name, error: err}); }
+
+                // Callback
+                if (callback) { callback(err, res); }
+            });
+        },
+
+        /**
+         * Sends a `reauthorize` request.
+         *
+         * @method reauthorize
+         * @param {Function} [callback]
+         */
+        reauthorize(callback) {
+
+            // Asserting
+            XP.assertArgument(XP.isVoid(callback) || XP.isFunction(callback), 1, 'Function');
+
+            // Checking
+            if (!this.expired) { callback && callback(); }
+
+            // Executing
+            this._reauthorize((err, res) => {
+
+                // Firing
+                if (err) { this.fire('app-auth-error', {namespace: this.namespace, authenticator: this.name, error: err}); }
+
+                // Callback
+                if (callback) { callback(err, res); }
+            });
+        },
+
+        /**
+         * Sends a `register` request.
+         *
+         * @method register
+         * @param {Object} options
+         * @param {Function} [callback]
+         */
+        register(options, callback) {
+
+            // Asserting
+            XP.assertArgument(XP.isObject(options), 1, 'Object');
+            XP.assertArgument(XP.isVoid(callback) || XP.isFunction(callback), 2, 'Function');
+
+            // Executing
+            this._register(options, callback);
+        },
+
+        /**
+         * Sends an `unauthorize` request.
+         *
+         * @method unauthorize
+         * @param {Function} [callback]
+         */
+        unauthorize(callback) {
+
+            // Asserting
+            XP.assertArgument(XP.isVoid(callback) || XP.isFunction(callback), 1, 'Function');
+
+            // Executing
+            this._unauthorize((err, res) => {
+
+                // Firing
+                if (err) { this.fire('app-auth-error', {namespace: this.namespace, authenticator: this.name, error: err}); }
+
+                // Callback
+                if (callback) { callback(err, res); }
+            });
+        },
+
+        /*********************************************************************/
+
+        /**
+         * Must be called when the authorization succeeds.
+         *
+         * @method authorizeCallback
+         * @param {Object} options
+         *   @param {string} options.accessToken
+         *   @param {number} options.expiresIn
+         *   @param {string} options.refreshToken
+         *   @param {boolean} [options.remember = false]
+         * @param {Function} [callback]
+         */
+        authorizeCallback(options, callback) {
+
+            // Preparing
+            if (!XP.isFunction(callback)) { callback = function () {}; }
+
+            // Asserting
+            if (!XP.isObject(options)) { callback(new XP.ValidationError('options', 'Object')); return; }
+            if (!XP.isString(options.accessToken, true)) { callback(new XP.ValidationError('options.accessToken', 'string')); return; }
+            if (!XP.isInt(options.expiresIn, true)) { callback(new XP.ValidationError('options.expiresIn', 'number')); return; }
+            if (!XP.isString(options.refreshToken, true)) { callback(new XP.ValidationError('options.refreshToken', 'string')); return; }
+
+            // Freeing
+            localStorage.removeItem(`auth.${this.namespace}.${this.name}`);
+
+            // Ensuring
+            this.ensure('expirationDate', new Date(Date.now() + options.expiresIn * 1000));
+            this.ensure('refreshToken', options.refreshToken);
+            this.ensure('accessToken', options.accessToken);
+
+            // Let
+            let result = XP.pick(this, ['accessToken', 'expirationDate', 'refreshToken']);
+
+            // Caching
+            if (options.remember) { localStorage.setItem(`auth.${this.namespace}.${this.name}`, JSON.stringify(result)); }
+
+            // Callback
+            callback(null, true);
+        },
+
+        /**
+         * Must be called when the unauthorization succeeds.
+         *
+         * @method unauthorizeCallback
+         * @param {Function} [callback]
+         */
+        unauthorizeCallback(callback) {
+
+            // Preparing
+            if (!XP.isFunction(callback)) { callback = function () {}; }
+
+            // Asserting
+            if (!XP.isString(this.accessToken)) { callback(new XP.ValidationError('accessToken', 'string')); return; }
+
+            // Freeing
+            localStorage.removeItem(`auth.${this.namespace}.${this.name}`);
+
+            // Ensuring
+            this.ensure('expirationDate', null);
+            this.ensure('refreshToken', null);
+            this.ensure('accessToken', null);
+
+            // Firing
+            callback(null, true);
+        },
+
+        /*********************************************************************/
+
+        /**
+         * Must be redefined to set the authorization strategy.
+         *
+         * @method _authorize
+         * @param {Object} options
+         * @param {Function} [callback]
+         * @abstract
+         * @private
+         */
+        _authorize(options, callback) {},
+
+        /**
+         * Must be redefined to set the reauthorization strategy.
+         *
+         * @method _reauthorize
+         * @param {Function} [callback]
+         * @abstract
+         * @private
+         */
+        _reauthorize(callback) {},
+
+        /**
+         * Must be redefined to set the registration strategy.
+         *
+         * @method _register
+         * @param {Object} options
+         * @param {Function} [callback]
+         * @abstract
+         * @private
+         */
+        _register(options, callback) {},
+
+        /**
+         * Must be redefined to set the unauthorization strategy.
+         *
+         * @method _unauthorize
+         * @param {Function} [callback]
+         * @abstract
+         * @private
+         */
+        _unauthorize(callback) {},
+
+        /*********************************************************************/
+
+        // PROPERTIES
+        properties: {
+
+            /**
+             * The current access token.
+             *
+             * @attribute access-token
+             * @type string
+             * @notifies
+             * @readonly
+             */
+            accessToken: {
+                notify: true,
+                observer: '__accessTokenChanged',
+                readOnly: true,
+                type: String,
+                value: null
+            },
+
+            /**
+             * If set to true, the access token is set.
+             *
+             * @attribute authenticated
+             * @type boolean
+             * @default false
+             * @notifies
+             * @readonly
+             */
+            authenticated: {
+                computed: '_computeAuthenticated(accessToken)',
+                notify: true,
+                type: Boolean,
+                value: false
+            },
+
+            /**
+             * The access token's expiration date.
+             *
+             * @attribute expiration-date
+             * @type Date
+             * @readonly
+             */
+            expirationDate: {
+                readOnly: true,
+                type: Date,
+                value: null
+            },
+
+            /**
+             * The authenticator's name.
+             *
+             * @attribute name
+             * @type string
+             * @default ""
+             * @readonly
+             */
+            name: {
+                reflectToAttribute: true,
+                type: String,
+                value: ''
+            },
+
+            /**
+             * The current refresh token.
+             *
+             * @attribute refresh-token
+             * @type string
+             * @readonly
+             */
+            refreshToken: {
+                readOnly: true,
+                type: String,
+                value: null
+            },
+
+            /**
+             * The application's shell.
+             *
+             * @attribute shell
+             * @type Element
+             * @readonly
+             */
+            shell: {
+                master: '.shell',
+                observer: '__shellChanged',
+                readOnly: true
+            },
+
+            /**
+             * The application's store.
+             *
+             * @attribute store
+             * @type Element
+             * @readonly
+             */
+            store: {
+                master: '.store',
+                readOnly: true
+            }
+        },
+
+        /**
+         * If set to true, the access token has expired.
+         *
+         * @property expired
+         * @type boolean
+         * @readonly
+         */
+        get expired() { return (this.expirationDate || undefined) < Date.now() + 30000; },
+
+        /**
+         * The application's namespace.
+         *
+         * @property namespace
+         * @type string
+         * @readonly
+         */
+        get namespace() { return this.shell && this.shell.namespace; },
+
+        /*********************************************************************/
+
+        // COMPUTER
+        _computeAuthenticated(accessToken) {
+            return !!accessToken;
+        },
+
+        /*********************************************************************/
+
+        // OBSERVER
+        __accessTokenChanged(post, pre) {
+
+            // Checking
+            if (!post && !XP.isDefined(pre)) { return; }
+
+            // Firing
+            this.fire(post ? 'app-authorize' : 'app-unauthorize', {
+                namespace: this.namespace,
+                authenticator: this.name,
+                accessToken: post || pre,
+                expirationDate: this.expirationDate
+            });
+        },
+
+        // OBSERVER
+        __shellChanged(post) {
+
+            // Let
+            let json    = post && localStorage.getItem(`auth.${this.namespace}.${this.name}`),
+                options = json && JSON.parse(json);
+
+            // Ensuring
+            this.ensure('expirationDate', options && new Date(options.expirationDate));
+            this.ensure('refreshToken', options && options.refreshToken);
+            this.ensure('accessToken', options && options.accessToken);
+        }
+    };
+
+    Polymer.APPAuthBehavior = [
+        Polymer.XPMasterSlaveBehavior,
+        Polymer.APPAuthBehaviorImp
+    ];
+</script>

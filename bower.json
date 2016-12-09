@@ -1,0 +1,24 @@
+{
+  "name": "app-behaviors",
+  "description": "A collection of app development web components from the expand.js team",
+  "version": "1.0.0",
+  "license": "BSD-3-Clause",
+  "main": "app-behaviors.html",
+  "homepage": "https://expandjs.com/components",
+
+  "authors": [
+    "Giuliano Rullo <g.rullo@expandjs.com>",
+    "Maurizio Stefàno <m.stefano@expandjs.com>",
+    "Robert Manolea <r.manolea@expandjs.com>"
+  ],
+
+  "keywords": [
+    "expandjs",
+    "web app",
+    "web components"
+  ],
+
+  "dependencies": {
+    "xp-elements": "ExpandJS/xp-elements#^1.0.0"
+  }
+}
