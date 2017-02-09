@@ -1,6 +1,6 @@
 <!--
 @license
-Copyright (c) 2015 The expand.js authors. All rights reserved.
+Copyright (c) 2017 The expand.js authors. All rights reserved.
 This code may only be used under the BSD style license found at https://expandjs.github.io/LICENSE.txt
 The complete set of authors may be found at https://expandjs.github.io/AUTHORS.txt
 The complete set of contributors may be found at https://expandjs.github.io/CONTRIBUTORS.txt
@@ -54,7 +54,8 @@ A behavior used to add remote source reading capabilities on a web component.
          * Fired when the reader is about to refresh due to a successful write.
          *
          * @event app-reader-refresh
-         * @param {Array | Object} data
+         * @param {string} command
+         * @param {Array | Object} current
          * @bubbles
          * @cancelable
          */
@@ -79,7 +80,7 @@ A behavior used to add remote source reading capabilities on a web component.
             // Waterfall
             XP.waterfall([
                 next => this.preserve === 'none' ? this.reset(next) : next(), // resetting
-                next => this.collection && this.readable && this.source.reauthorize(next), // reauthorizing
+                next => this.collection && this.readable && this.source && this.source.reauthorize(next), // reauthorizing
                 next => this.debounce('reading', next), // squashing
                 next => this.feed ? this.source.stream(this.collection, this.options, next) : this._read(next) // reading
             ], (error, data) => {
@@ -306,7 +307,7 @@ A behavior used to add remote source reading capabilities on a web component.
              * @readonly
              */
             options: {
-                computed: '_computeOptions(count, distinct, except, exclude, feed, groupBy, include, limit, order, orderBy, pk, skip, where)',
+                computed: '_computeOptions(count, distinct, except, exclude, feed, groupBy, include, limit, order, orderBy, pk, skip, token, where)',
                 type: Object
             },
 
@@ -468,7 +469,7 @@ A behavior used to add remote source reading capabilities on a web component.
 
         // COMPUTER
         _computeOptions() {
-            let options = ['count', 'distinct', 'except', 'exclude', 'feed', 'groupBy', 'include', 'limit', 'order', 'orderBy', 'pk', 'skip', 'where'], result = {};
+            let options = ['count', 'distinct', 'except', 'exclude', 'feed', 'groupBy', 'include', 'limit', 'order', 'orderBy', 'pk', 'skip', 'token', 'where'], result = {};
             options.forEach(option => !XP.isUseful(this[option]) || XP.isFalse(this[option]) || (result[option] = this[option]));
             return result;
         },
@@ -539,7 +540,7 @@ A behavior used to add remote source reading capabilities on a web component.
         __handleWrite(event) {
 
             // Firing
-            if (this.fire('app-reader-refresh', {data: this.data}, {cancelable: true}).defaultPrevented) { return; }
+            if (this.fire('app-reader-refresh', {command: event.detail.command, current: this.data}, {cancelable: true}).defaultPrevented) { return; }
 
             // Refreshing
             if (!this.feed && this.collection === event.detail.resource) { this.refresh(); }

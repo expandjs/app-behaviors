@@ -1,6 +1,6 @@
 <!--
 @license
-Copyright (c) 2015 The expand.js authors. All rights reserved.
+Copyright (c) 2017 The expand.js authors. All rights reserved.
 This code may only be used under the BSD style license found at https://expandjs.github.io/LICENSE.txt
 The complete set of authors may be found at https://expandjs.github.io/AUTHORS.txt
 The complete set of contributors may be found at https://expandjs.github.io/CONTRIBUTORS.txt
@@ -46,6 +46,7 @@ A behavior used to add remote source interaction on a web component.
          * Fired when data has been wrote.
          *
          * @event app-source-write
+         * @param {string} command
          * @param {string} resource
          * @bubbles
          */
@@ -394,14 +395,17 @@ A behavior used to add remote source interaction on a web component.
             // Asserting
             XP.assertArgument(XP.isFunction(callback), 1, 'Function');
 
+            // Preventing
+            if (this.get(`auth.${this.name}.expirationDate`) >= Date.now() + 30000) { callback(); return; }
+
             // Pushing
-            if (this.get('auth.expired')) { this.push('callbacks', callback); } else { callback(); return; }
+            this.push('callbacks', callback);
 
             // Ensuring
             if (!this.reauthorizing) { this.ensure('reauthorizing', true); } else { return; }
 
             // Reauthorizing
-            this.auth.reauthorize(error => {
+            this.invoke('reauthorize', {auth: this.name}, error => {
 
                 // Ensuring
                 this.ensure('reauthorizing', false);
@@ -566,17 +570,6 @@ A behavior used to add remote source interaction on a web component.
         properties: {
 
             /**
-             * The source's auth.
-             *
-             * @attribute auth
-             * @type Element
-             * @readonly
-             */
-            auth: {
-                readOnly: true
-            },
-
-            /**
              * The reauthorization callbacks.
              *
              * @attribute callbacks
@@ -655,7 +648,7 @@ A behavior used to add remote source interaction on a web component.
              * @readonly
              */
             token: {
-                computed: '_computeToken(name, app.auth.*)',
+                computed: '_computeToken(name, auth.*)',
                 observer: '_notifyToken',
                 type: String,
                 value: null
@@ -665,8 +658,8 @@ A behavior used to add remote source interaction on a web component.
         /*********************************************************************/
 
         // COMPUTER
-        _computeToken(name) {
-            return (name && this.get(`app.auth.${name}`)) || null;
+        _computeToken(name, token) {
+            return (name && this.get(`auth.${name}.accessToken`)) || null;
         },
 
         /*********************************************************************/
