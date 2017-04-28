@@ -46,8 +46,8 @@ A behavior used to add remote source interaction on a web component.
          * Fired when data has been wrote.
          *
          * @event app-source-write
+         * @param {string} collection
          * @param {string} command
-         * @param {string} resource
          * @bubbles
          */
 
@@ -59,22 +59,25 @@ A behavior used to add remote source interaction on a web component.
          * @method create
          * @param {string} collection
          * @param {Object} data
+         * @param {Object} [options]
          * @param {Function} [callback]
          */
-        create(collection, data, callback) {
+        create(collection, data, options, callback) {
 
             // Preparing
+            if (XP.isFunction(options)) { callback = options; options = undefined; }
             if (XP.isVoid(callback)) { callback = function () {}; }
 
             // Asserting
             XP.assertArgument(XP.isString(collection, true), 1, 'string');
             XP.assertArgument(XP.isObject(data), 2, 'Object');
-            XP.assertArgument(XP.isFunction(callback), 3, 'Function');
+            XP.assertArgument(XP.isVoid(options) || XP.isObject(options), 3, 'Object');
+            XP.assertArgument(XP.isFunction(callback), 4, 'Function');
 
             // Waterfall
             XP.waterfall([
                 next => this.reauthorize(next), // reauthorizing
-                next => this._create(collection, data, next) // executing
+                next => this._create(collection, data, options || {}, next) // executing
             ], callback);
         },
 
@@ -92,6 +95,7 @@ A behavior used to add remote source interaction on a web component.
         delete(collection, options, callback) {
 
             // Preparing
+            if (XP.isFunction(options)) { callback = options; options = undefined; }
             if (XP.isVoid(callback)) { callback = function () {}; }
 
             // Asserting
@@ -150,30 +154,95 @@ A behavior used to add remote source interaction on a web component.
          * Submits a generic request.
          *
          * @method request
-         * @param {string} method
          * @param {string} procedure
-         * @param {Object} [data]
          * @param {Object} [options]
+         *   @param {Object} [options.data]
+         *   @param {string} [options.method]
+         *   @param {Object} [options.query]
          * @param {Function} [callback]
          */
-        request(method, procedure, data, options, callback) {
+        request(procedure, options, callback) {
 
             // Preparing
-            if (XP.isFunction(data)) { callback = data; options = undefined; data = undefined; }
             if (XP.isFunction(options)) { callback = options; options = undefined; }
             if (XP.isVoid(callback)) { callback = function () {}; }
 
             // Asserting
-            XP.assertArgument(XP.isString(method, true), 1, 'string');
-            XP.assertArgument(XP.isString(procedure, true), 2, 'string');
-            XP.assertArgument(XP.isVoid(data) || XP.isObject(data), 3, 'Object');
-            XP.assertArgument(XP.isVoid(options) || XP.isObject(options), 4, 'Object');
-            XP.assertArgument(XP.isFunction(callback), 5, 'Function');
+            XP.assertArgument(XP.isString(procedure, true), 1, 'string');
+            XP.assertArgument(XP.isVoid(options) || XP.isObject(options), 2, 'Object');
+            XP.assertArgument(XP.isFunction(callback), 3, 'Function');
 
             // Waterfall
             XP.waterfall([
                 next => this.reauthorize(next), // reauthorizing
-                next => this._request(method, procedure, data, options || {}, next) // executing
+                next => this._request(procedure, options || {}, next) // executing
+            ], callback);
+        },
+
+        /**
+         * Sends `data` to the `channel`, invoking the specified `event`.
+         *
+         * @method send
+         * @param {string} channel
+         * @param {string} event
+         * @param {Object}  [data]
+         * @param {Function} [callback]
+         */
+        send(channel, event, data, callback) {
+
+            // Preparing
+            if (XP.isFunction(data)) { callback = data; data = undefined; }
+            if (XP.isVoid(callback)) { callback = function () {}; }
+
+            // Asserting
+            XP.assertArgument(XP.isString(channel, true), 1, 'string');
+            XP.assertArgument(XP.isString(event, true), 2, 'string');
+            XP.assertArgument(XP.isVoid(data) || XP.isObject(data), 3, 'Object');
+            XP.assertArgument(XP.isFunction(callback), 4, 'Function');
+
+            // Sending
+            XP.waterfall([
+                next => this.reauthorize(next), // reauthorizing
+                next => this._send(channel, event, data, callback) // sending
+            ], callback);
+        },
+
+        /**
+         * Opens a live `stream` feed.
+         *
+         * @method stream
+         * @param {string} collection
+         * @param {Object} options
+         *   @param {string} options.feed
+         *   @param {Array | string} [options.pk]
+         *   @param {Array | string} [options.exclude]
+         *   @param {Array | string} [options.include]
+         *   @param {Object | string} [options.where]
+         *   @param {string} [options.except]
+         *   @param {string} [options.feed]
+         *   @param {string} [options.locale]
+         *   @param {string} [options.order]
+         *   @param {string} [options.orderBy]
+         *   @param {number} [options.limit]
+         *   @param {number} [options.skip]
+         *   @param {boolean} [options.changes = false]
+         * @param {Function} [callback]
+         */
+        stream(collection, options, callback) {
+
+            // Preparing
+            if (XP.isFunction(options)) { callback = options; options = undefined; }
+            if (XP.isVoid(callback)) { callback = function () {}; }
+
+            // Asserting
+            XP.assertArgument(XP.isString(collection, true), 1, 'string');
+            XP.assertArgument(XP.isVoid(options) || XP.isObject(options), 2, 'Object');
+            XP.assertArgument(XP.isFunction(callback), 3, 'Function');
+
+            // Waterfall
+            XP.waterfall([
+                next => this.reauthorize(next), // reauthorizing
+                next => this._stream(collection, options || {}, next) // executing
             ], callback);
         },
 
@@ -193,6 +262,7 @@ A behavior used to add remote source interaction on a web component.
         update(collection, data, options, callback) {
 
             // Preparing
+            if (XP.isFunction(options)) { callback = options; options = undefined; }
             if (XP.isVoid(callback)) { callback = function () {}; }
 
             // Asserting
@@ -205,6 +275,33 @@ A behavior used to add remote source interaction on a web component.
             XP.waterfall([
                 next => this.reauthorize(next), // reauthorizing
                 next => this._update(collection, data, options || {}, next) // executing
+            ], callback);
+        },
+
+        /**
+         * Submits a generic upload.
+         *
+         * @method upload
+         * @param {File} file
+         * @param {Object} [options]
+         *   @param {Object} [options.query]
+         * @param {Function} [callback]
+         */
+        upload(file, options, callback) {
+
+            // Preparing
+            if (XP.isFunction(options)) { callback = options; options = undefined; }
+            if (XP.isVoid(callback)) { callback = function () {}; }
+
+            // Asserting
+            XP.assertArgument(XP.isInstance(file, File), 1, 'File');
+            XP.assertArgument(XP.isVoid(options) || XP.isObject(options), 2, 'Object');
+            XP.assertArgument(XP.isFunction(callback), 3, 'Function');
+
+            // Waterfall
+            XP.waterfall([
+                next => this.reauthorize(next), // reauthorizing
+                next => this._upload(file, options || {}, next) // executing
             ], callback);
         },
 
@@ -318,67 +415,6 @@ A behavior used to add remote source interaction on a web component.
             this._once(channel, event, handler);
         },
 
-        /**
-         * Sends `data` to the `channel`, invoking the specified `event`.
-         *
-         * @method send
-         * @param {string} channel
-         * @param {string} event
-         * @param {Object}  [data]
-         * @param {Function} [callback]
-         */
-        send(channel, event, data, callback) {
-
-            // Preparing
-            if (XP.isFunction(data)) { callback = data; data = undefined; }
-            if (XP.isVoid(callback)) { callback = function () {}; }
-
-            // Asserting
-            XP.assertArgument(XP.isString(channel, true), 1, 'string');
-            XP.assertArgument(XP.isString(event, true), 2, 'string');
-            XP.assertArgument(XP.isVoid(data) || XP.isObject(data), 3, 'Object');
-            XP.assertArgument(XP.isFunction(callback), 4, 'Function');
-
-            // Sending
-            this._send(channel, event, data, callback);
-        },
-
-        /**
-         * Opens a live `stream` feed.
-         *
-         * @method stream
-         * @param {string} collection
-         * @param {Object} options
-         *   @param {string} options.feed
-         *   @param {Array | string} [options.pk]
-         *   @param {Array | string} [options.exclude]
-         *   @param {Array | string} [options.include]
-         *   @param {Object | string} [options.where]
-         *   @param {string} [options.except]
-         *   @param {string} [options.feed]
-         *   @param {string} [options.locale]
-         *   @param {string} [options.order]
-         *   @param {string} [options.orderBy]
-         *   @param {number} [options.limit]
-         *   @param {number} [options.skip]
-         *   @param {boolean} [options.changes = false]
-         * @param {Function} [callback]
-         */
-        stream(collection, options, callback) {
-
-            // Preparing
-            if (XP.isFunction(options)) { callback = options; options = undefined; }
-            if (XP.isVoid(callback)) { callback = function () {}; }
-
-            // Asserting
-            XP.assertArgument(XP.isString(collection, true), 1, 'string');
-            XP.assertArgument(XP.isVoid(options) || XP.isObject(options), 2, 'Object');
-            XP.assertArgument(XP.isFunction(callback), 3, 'Function');
-
-            // Executing
-            this._stream(collection, options || {}, callback);
-        },
-
         /*********************************************************************/
 
         /**
@@ -395,8 +431,11 @@ A behavior used to add remote source interaction on a web component.
             // Asserting
             XP.assertArgument(XP.isFunction(callback), 1, 'Function');
 
+            // Let
+            let auth = this.get(`auth.${this.name}`);
+
             // Preventing
-            if (this.get(`auth.${this.name}.expirationDate`) >= Date.now() + 30000) { callback(); return; }
+            if (!auth || auth.expirationDate >= Date.now() + 30000) { callback(); return; }
 
             // Pushing
             this.push('callbacks', callback);
@@ -421,11 +460,12 @@ A behavior used to add remote source interaction on a web component.
          * @method _create
          * @param {string} collection
          * @param {Object} data
+         * @param {Object} options
          * @param {Function} [callback]
          * @abstract
          * @private
          */
-        _create(collection, data, callback) {},
+        _create(collection, data, options, callback) {},
 
         /**
          * Must be redefined to set the `delete` strategy.
@@ -455,15 +495,13 @@ A behavior used to add remote source interaction on a web component.
          * Must be redefined to set the `request` strategy.
          *
          * @method _request
-         * @param {string} method
          * @param {string} procedure
-         * @param {Object} [data]
          * @param {Object} [options]
          * @param {Function} [callback]
          * @abstract
          * @private
          */
-        _request(method, procedure, data, options, callback) {},
+        _request(procedure, options, callback) {},
 
         /**
          * Must be redefined to set the `update` strategy.
@@ -641,16 +679,18 @@ A behavior used to add remote source interaction on a web component.
             },
 
             /**
-             * The current access token.
+             * The current token.
              *
              * @attribute token
-             * @type string
+             * @type Object
+             * @notifies
              * @readonly
              */
             token: {
                 computed: '_computeToken(name, auth.*)',
+                notify: true,
                 observer: '_notifyToken',
-                type: String,
+                type: Object,
                 value: null
             }
         },
@@ -658,8 +698,8 @@ A behavior used to add remote source interaction on a web component.
         /*********************************************************************/
 
         // COMPUTER
-        _computeToken(name, token) {
-            return (name && this.get(`auth.${name}.accessToken`)) || null;
+        _computeToken(name) {
+            return (name && this.get(`auth.${name}`)) || null;
         },
 
         /*********************************************************************/

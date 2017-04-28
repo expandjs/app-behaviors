@@ -72,6 +72,7 @@ A web component used to provide client-side routing.
              *
              * @event app-route
              * @param {string} namespace
+             * @param {Object} query
              * @param {Object} route
              * @bubbles
              * @cancelable
@@ -119,6 +120,20 @@ A web component used to provide client-side routing.
 
             // PROPERTIES
             properties: {
+
+                /**
+                 * The application's active query.
+                 *
+                 * @attribute query
+                 * @type Object
+                 * @notifies
+                 * @readonly
+                 */
+                query: {
+                    notify: true,
+                    readOnly: true,
+                    type: Object
+                },
 
                 /**
                  * If set to true, the route change has been prevented.
@@ -263,12 +278,15 @@ A web component used to provide client-side routing.
                     // Let
                     let params = XP.parsePath(location.pathname, `${this.shell.baseRoute || ''}${element.path}`),
                         query  = XP.parseQueryString(location.search.slice(1)),
-                        opts   = params && {basename: this.shell.baseRoute || '', params: XP.freezeDeep(params), pathname: location.pathname.replace(this.shell.baseRoute || '', ''), query: query},
-                        route  = params && Object.assign({}, XP.mapValues(element.dataset, val => XP.parsePrimitive(val)), opts),
-                        event  = params && this.fire('app-route', {namespace: this.namespace, route: route}, {cancelable: true});
+                        data   = params && {basename: this.shell.baseRoute || '', params: XP.freezeDeep(params), pathname: location.pathname.replace(this.shell.baseRoute || '', '')},
+                        route  = params && this.get('route.pathname') !== data.pathname && Object.assign({}, XP.mapValues(element.dataset, val => XP.parsePrimitive(val)), data),
+                        event  = params && this.fire('app-route', {namespace: this.namespace, query: query, route: route || this.route}, {cancelable: true});
 
                     // Checking
-                    if (event) { this.ensure('rollback', event.defaultPrevented); } else { return; }
+                    if (!params) { return; }
+
+                    // Preparing
+                    if (event) { this.ensure('rollback', event.defaultPrevented); }
 
                     // Rollback
                     if (this.rollback) { history.forward(); this.wait(() => !this.rollback || history.back(), 3, true); return true; }
@@ -277,7 +295,10 @@ A web component used to provide client-side routing.
                     if (element.redirect) { this.redirect(`${this.shell.baseRoute || ''}${element.redirect}`); return true; }
 
                     // Ensuring
-                    return !this.ensure('route', route);
+                    if (route) { this.ensure('route', route); }
+                    if (query) { this.ensure('query', query); }
+
+                    return true;
                 });
             }
         });

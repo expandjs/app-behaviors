@@ -74,19 +74,35 @@ A behavior used to add authentication capabilities on a web component.
          */
         authorize(options, callback) {
 
+            // Preparing
+            if (XP.isVoid(callback)) { callback = function () {}; }
+
             // Asserting
             XP.assertArgument(XP.isObject(options), 1, 'Object');
-            XP.assertArgument(XP.isVoid(callback) || XP.isFunction(callback), 2, 'Function');
+            XP.assertArgument(XP.isFunction(callback), 2, 'Function');
 
             // Executing
-            this._authorize(options, (err, res) => {
+            this._authorize(options, (err, res) => callback(err, err ? this.fire('app-auth-error', {auth: this.name, error: err}) : res));
+        },
 
-                // Firing
-                if (err) { this.fire('app-auth-error', {auth: this.name, error: err}); }
+        /**
+         * Send an `oauth` request.
+         *
+         * @method oauth
+         * @param {Object} options
+         * @param {Function} [callback]
+         */
+        oauth(options, callback) {
 
-                // Callback
-                if (callback) { callback(err, res); }
-            });
+            // Preparing
+            if (XP.isVoid(callback)) { callback = function () {}; }
+
+            // Asserting
+            XP.assertArgument(XP.isObject(options), 1, 'Object');
+            XP.assertArgument(XP.isFunction(callback), 2, 'Function');
+
+            // Executing
+            this._oauth(options, (err, res) => callback(err, err ? this.fire('app-auth-error', {auth: this.name, error: err}) : res));
         },
 
         /**
@@ -97,21 +113,20 @@ A behavior used to add authentication capabilities on a web component.
          */
         reauthorize(callback) {
 
+            // Preparing
+            if (XP.isVoid(callback)) { callback = function () {}; }
+
             // Asserting
-            XP.assertArgument(XP.isVoid(callback) || XP.isFunction(callback), 1, 'Function');
+            XP.assertArgument(XP.isFunction(callback), 1, 'Function');
+
+            // Let
+            let auth = this.get(`auth.${this.name}`);
 
             // Preventing
-            if (this.get(`auth.${this.name}.expirationDate`) >= Date.now() + 30000) { callback && callback(); return; }
+            if (!auth || auth.expirationDate >= Date.now() + 30000) { callback(); return; }
 
             // Executing
-            this._reauthorize((err, res) => {
-
-                // Firing
-                if (err) { this.fire('app-auth-error', {auth: this.name, error: err}); }
-
-                // Callback
-                if (callback) { callback(err, res); }
-            });
+            this._reauthorize((err, res) => callback(err, err ? this.fire('app-auth-error', {auth: this.name, error: err}) : res));
         },
 
         /**
@@ -123,9 +138,12 @@ A behavior used to add authentication capabilities on a web component.
          */
         register(options, callback) {
 
+            // Preparing
+            if (XP.isVoid(callback)) { callback = function () {}; }
+
             // Asserting
             XP.assertArgument(XP.isObject(options), 1, 'Object');
-            XP.assertArgument(XP.isVoid(callback) || XP.isFunction(callback), 2, 'Function');
+            XP.assertArgument(XP.isFunction(callback), 2, 'Function');
 
             // Executing
             this._register(options, callback);
@@ -139,18 +157,14 @@ A behavior used to add authentication capabilities on a web component.
          */
         unauthorize(callback) {
 
+            // Preparing
+            if (XP.isVoid(callback)) { callback = function () {}; }
+
             // Asserting
-            XP.assertArgument(XP.isVoid(callback) || XP.isFunction(callback), 1, 'Function');
+            XP.assertArgument(XP.isFunction(callback), 1, 'Function');
 
             // Executing
-            this._unauthorize((err, res) => {
-
-                // Firing
-                if (err) { this.fire('app-auth-error', {auth: this.name, error: err}); }
-
-                // Callback
-                if (callback) { callback(err, res); }
-            });
+            this._unauthorize((err, res) => callback(err, err ? this.fire('app-auth-error', {auth: this.name, error: err}) : res));
         },
 
         /*********************************************************************/
@@ -161,7 +175,7 @@ A behavior used to add authentication capabilities on a web component.
          * @method authorizeCallback
          * @param {Object} options
          *   @param {string} options.accessToken
-         *   @param {number} options.expiresIn
+         *   @param {number} options.expiresAt
          *   @param {string} options.refreshToken
          *   @param {boolean} [options.remember = false]
          * @param {Function} [callback]
@@ -174,14 +188,14 @@ A behavior used to add authentication capabilities on a web component.
             // Asserting
             if (!XP.isObject(options)) { callback(new XP.ValidationError('options', 'Object')); return; }
             if (!XP.isString(options.accessToken, true)) { callback(new XP.ValidationError('options.accessToken', 'string')); return; }
-            if (!XP.isInt(options.expiresIn, true)) { callback(new XP.ValidationError('options.expiresIn', 'number')); return; }
+            if (!XP.isInt(options.expiresAt, true)) { callback(new XP.ValidationError('options.expiresAt', 'number')); return; }
             if (!XP.isString(options.refreshToken, true)) { callback(new XP.ValidationError('options.refreshToken', 'string')); return; }
 
             // Freeing
-            localStorage.removeItem(`auth.${this.name}`);
+            localStorage.removeItem(`auth.${this.namespace}.${this.name}`);
 
             // Ensuring
-            this.ensure('expirationDate', new Date(Date.now() + options.expiresIn * 1000));
+            this.ensure('expirationDate', new Date(options.expiresAt));
             this.ensure('refreshToken', options.refreshToken);
             this.ensure('accessToken', options.accessToken);
             this.ensure('stored', Boolean(options.remember));
@@ -190,7 +204,7 @@ A behavior used to add authentication capabilities on a web component.
             this.ensure(`auth.${this.name}`, XP.pick(this, ['accessToken', 'expirationDate', 'refreshToken']));
 
             // Caching
-            if (options.remember) { localStorage.setItem(`auth.${this.name}`, JSON.stringify(this.auth[this.name])); }
+            if (options.remember) { localStorage.setItem(`auth.${this.namespace}.${this.name}`, JSON.stringify(this.auth[this.name])); }
 
             // Firing
             this.fire('app-auth-success', Object.assign({auth: this.name}, this.auth[this.name]));
@@ -217,7 +231,7 @@ A behavior used to add authentication capabilities on a web component.
             let accessToken = this.accessToken;
 
             // Freeing
-            localStorage.removeItem(`auth.${this.name}`);
+            localStorage.removeItem(`auth.${this.namespace}.${this.name}`);
 
             // Ensuring
             this.ensure('expirationDate', null);
@@ -247,6 +261,17 @@ A behavior used to add authentication capabilities on a web component.
          * @private
          */
         _authorize(options, callback) {},
+
+        /**
+         * Must be redefined to set the 3rd party authorization strategy.
+         *
+         * @method _oauth
+         * @param {Object} options
+         * @param {Function} [callback]
+         * @abstract
+         * @private
+         */
+        _oauth(options, callback) {},
 
         /**
          * Must be redefined to set the reauthorization strategy.
@@ -432,7 +457,7 @@ A behavior used to add authentication capabilities on a web component.
         __shellChanged(post) {
 
             // Let
-            let json = post && localStorage.getItem(`auth.${this.name}`),
+            let json = post && localStorage.getItem(`auth.${this.namespace}.${this.name}`),
                 data = json && JSON.parse(json);
 
             // Preparing
@@ -449,6 +474,7 @@ A behavior used to add authentication capabilities on a web component.
 
             // Listening
             this[post ? 'listen' : 'unlisten'](window, 'app-auth-request', '__handleAuthRequest');
+            this[post ? 'listen' : 'unlisten'](window, 'app-oauth-request', '__handleOAuthRequest');
             this[post ? 'listen' : 'unlisten'](window, 'app-reauth-request', '__handleReauthRequest');
             this[post ? 'listen' : 'unlisten'](window, 'app-register-request', '__handleRegisterRequest');
             this[post ? 'listen' : 'unlisten'](window, 'app-unauth-request', '__handleUnauthRequest');
@@ -475,6 +501,16 @@ A behavior used to add authentication capabilities on a web component.
 
             // Authorizing
             this.authorize(event.detail.data, event.detail.callback);
+        },
+
+        // HANDLER
+        __handleOAuthRequest(event) {
+
+            // Checking
+            if (event.defaultPrevented || event.detail.auth !== this.name) { return; }
+
+            // OAuth
+            this.oauth(event.detail.data, event.detail.callback);
         },
 
         // HANDLER

@@ -122,6 +122,23 @@ A behavior used to add store capabilities on a web component.
             },
 
             /**
+             * If set to true, the store is initialized.
+             *
+             * @attribute initialized
+             * @type boolean
+             * @default false
+             * @notifies
+             * @readonly
+             */
+            initialized: {
+                notify: true,
+                readOnly: true,
+                reflectToAttribute: true,
+                type: Boolean,
+                value: false
+            },
+
+            /**
              * The application's state's memento.
              *
              * @attribute memento
@@ -203,6 +220,9 @@ A behavior used to add store capabilities on a web component.
             // Waiting (ShadyDOM)
             this.async(() => {
 
+                // Starting
+                this.ensure('initialized', false);
+
                 // Listening
                 this[post ? 'listen' : 'unlisten'](window, 'offline', '__handleOffline');
                 this[post ? 'listen' : 'unlisten'](window, 'online', '__handleOnline');
@@ -228,6 +248,9 @@ A behavior used to add store capabilities on a web component.
                 // Exposing
                 XP.set(window, `app.${this.namespace}`, app);
                 XP.set(window, `auth`, auth);
+
+                // Ending
+                this.ensure('initialized', true);
             });
         },
 
@@ -263,7 +286,15 @@ A behavior used to add store capabilities on a web component.
         __handleRoute(event) {
 
             // Ensuring
-            this.async(() => event.defaultPrevented || this.ensure('app.route', event.detail.route));
+            this.async(() => {
+
+                // Preventing
+                if (event.defaultPrevented) { return; }
+
+                // Ensuring
+                this.ensure('app.route', event.detail.route);
+                this.ensure('app.query', event.detail.query);
+            });
         }
     };
 
