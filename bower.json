@@ -1,7 +1,7 @@
 {
   "name": "app-behaviors",
   "description": "A collection of app development web components from the expand.js team",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "license": "BSD-3-Clause",
   "main": "app-behaviors.html",
   "homepage": "https://expandjs.com/components",

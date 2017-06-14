@@ -241,7 +241,6 @@ A behavior used to add remote source interaction on a web component.
 
             // Waterfall
             XP.waterfall([
-                next => this.reauthorize(next), // reauthorizing
                 next => this._stream(collection, options || {}, next) // executing
             ], callback);
         },
@@ -431,25 +430,8 @@ A behavior used to add remote source interaction on a web component.
             // Asserting
             XP.assertArgument(XP.isFunction(callback), 1, 'Function');
 
-            // Let
-            let auth = this.get(`auth.${this.name}`);
-
-            // Preventing
-            if (!auth || auth.expirationDate >= Date.now() + 30000) { callback(); return; }
-
-            // Pushing
-            this.push('callbacks', callback);
-
-            // Ensuring
-            if (!this.reauthorizing) { this.ensure('reauthorizing', true); } else { return; }
-
-            // Reauthorizing
-            this.invoke('reauthorize', {auth: this.name}, error => {
-
-                // Ensuring
-                this.ensure('reauthorizing', false);
-                this.ensure('callbacks', this.callbacks.filter(callback => callback(error) && false));
-            });
+            // Firing
+            this.fire('app-reauth-request', {auth: this.name, callback: callback}, {cancelable: true});
         },
 
         /*********************************************************************/
@@ -608,19 +590,6 @@ A behavior used to add remote source interaction on a web component.
         properties: {
 
             /**
-             * The reauthorization callbacks.
-             *
-             * @attribute callbacks
-             * @type Array
-             * @readonly
-             */
-            callbacks: {
-                readOnly: true,
-                type: Array,
-                value: function () { return []; }
-            },
-
-            /**
              * If set to true, the connection is open.
              *
              * @attribute connected
@@ -665,20 +634,6 @@ A behavior used to add remote source interaction on a web component.
             },
 
             /**
-             * If set to true, the reauthorization is running.
-             *
-             * @attribute reauthorizing
-             * @type boolean
-             * @default false
-             * @readonly
-             */
-            reauthorizing: {
-                readOnly: true,
-                type: Boolean,
-                value: false
-            },
-
-            /**
              * The current token.
              *
              * @attribute token
@@ -695,11 +650,20 @@ A behavior used to add remote source interaction on a web component.
             }
         },
 
+        /**
+         * If set to true, the access token is expired.
+         *
+         * @property expired
+         * @type boolean
+         * @readonly
+         */
+        get expired() { return !this.auth || !this.auth[name] || this.auth[name].expiresAt < Date.now() + 30000; },
+
         /*********************************************************************/
 
         // COMPUTER
         _computeToken(name) {
-            return (name && this.get(`auth.${name}`)) || null;
+            return name && this.get(`auth.${name}`) || null;
         },
 
         /*********************************************************************/
