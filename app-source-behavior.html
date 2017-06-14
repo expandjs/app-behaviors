@@ -673,6 +673,9 @@ A behavior used to add remote source interaction on a web component.
         _notifyToken(post) { this.notifyAll(this.readers || [], 'source.token', post); }
     };
 
+    /**
+     * @polymerBehavior Polymer.APPSourceBehavior
+     */
     Polymer.APPSourceBehavior = [
         Polymer.APPReceiverBehavior,
         Polymer.APPSourceBehaviorImp
