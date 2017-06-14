@@ -176,7 +176,7 @@ A behavior used to add remote source reading capabilities on a web component.
                  * @readonly
                  */
                 connected: {
-                    computed: '_computeFrom(source.connected)',
+                    computed: 'computeFrom(source.connected)',
                     type: Boolean
                 },
 
@@ -404,7 +404,7 @@ A behavior used to add remote source reading capabilities on a web component.
                  * @readonly
                  */
                 refresher: {
-                    computed: '_computeFrom(token.refreshToken)',
+                    computed: 'computeFrom(token.refreshToken)',
                     type: String
                 },
 
@@ -480,7 +480,7 @@ A behavior used to add remote source reading capabilities on a web component.
                  * @readonly
                  */
                 token: {
-                    computed: '_computeFrom(source.token)',
+                    computed: 'computeFrom(source.token)',
                     type: String
                 },
 
