@@ -1,0 +1,788 @@
+<!--
+@license
+Copyright (c) 2017 The expand.js authors. All rights reserved.
+This code may only be used under the BSD style license found at https://expandjs.github.io/LICENSE.txt
+The complete set of authors may be found at https://expandjs.github.io/AUTHORS.txt
+The complete set of contributors may be found at https://expandjs.github.io/CONTRIBUTORS.txt
+-->
+
+<!--
+A web component used to provide source interaction.
+
+@element app-source
+@since 1.3.0
+@category functionality
+@description A web component used to provide source interaction
+@keywords expandjs, web app, web components
+
+@homepage https://expandjs.com/components/app-source
+@repository https://github.com/expandjs/app-behaviors
+@source https://github.com/expandjs/app-behaviors/blob/master/app-source.html
+
+@behavior app-receiver-behavior /bower_components/app-behaviors/app-receiver-behavior.html
+-->
+
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../expandjs/expandjs.html">
+<link rel="import" href="app-receiver-behavior.html">
+
+<dom-module id="app-source">
+
+    <template strip-whitespace>
+
+        <style>
+            :host {
+                display: none !important;
+            }
+        </style>
+
+        <slot></slot>
+
+    </template>
+
+    <script>
+        Polymer({
+
+            // ELEMENT
+            is: 'app-source',
+
+            // BEHAVIORS
+            behaviors: [
+                Polymer.APPReceiverBehavior
+            ],
+
+            // CLASSES
+            classes: ['source'],
+
+            /*********************************************************************/
+
+            /**
+             * Fired when a message has been received.
+             *
+             * @event app-source-message
+             * @param {string} topic
+             * @param {Object} payload
+             * @param {Function} callback
+             * @bubbles
+             */
+
+            /**
+             * Fired when data has been wrote.
+             *
+             * @event app-source-write
+             * @param {string} command
+             * @param {string} resource
+             * @bubbles
+             */
+
+            /*********************************************************************/
+
+            /**
+             * Returns true if `token` is expired.
+             *
+             * @method isExpired
+             * @param {Object} token
+             * @returns boolean
+             */
+            isExpired(token) {
+
+                // Asserting
+                XP.assertArgument(XP.isVoid(token) || XP.isObject(token), 1, 'Object');
+
+                // Returning
+                return token && Date.now() >= token.expiresAt - 60000 || false;
+            },
+
+            /**
+             * Must be called on `message` reception.
+             *
+             * @method message
+             * @param {Object} options
+             *   @param {string} options.topic
+             *   @param {Object} [options.payload]
+             * @param {Function} [callback]
+             */
+            message(options, callback) {
+
+                // Preparing
+                if (XP.isVoid(callback)) { callback = function () {}; }
+
+                // Asserting
+                XP.assertArgument(XP.isObject(options), 1, 'Object');
+                XP.assertArgument(XP.isFunction(callback), 2, 'Function');
+                XP.assertOption(XP.isString(options.topic), 'options.topic', 'string');
+                XP.assertOption(XP.isVoid(options.payload) || XP.isObject(options.payload), 'options.payload', 'Object');
+
+                // Firing
+                this.fire('app-source-message', {topic: options.topic, payload: options.payload, callback}, {node: this.source});
+            },
+
+            /**
+             * Submits a request.
+             *
+             * @method request
+             * @param {Object} options
+             *   @param {string} options.resource
+             *   @param {string} [options.command]
+             *   @param {Object} [options.data]
+             *   @param {string} [options.nonce]
+             *   @param {Object} [options.query]
+             *   @param {boolean} [options.noAuth = false]
+             *   @param {boolean} [options.noChanges = true]
+             *   @param {boolean} [options.noReply = false]
+             * @param {Function} [callback]
+             */
+            request(options, callback) {
+
+                // Preparing
+                if (XP.isVoid(callback)) { callback = function () {}; }
+
+                // Asserting
+                XP.assertArgument(XP.isObject(options), 1, 'Object');
+                XP.assertArgument(XP.isFunction(callback), 2, 'Function');
+                XP.assertOption(XP.isString(options.resource, true), 'options.resource', 'string');
+                XP.assertOption(XP.isVoid(options.command) || XP.isString(options.command), 'options.command', 'string');
+                XP.assertOption(XP.isVoid(options.data) || XP.isObject(options.data), 'options.data', 'Object');
+                XP.assertOption(XP.isVoid(options.nonce) || XP.isString(options.nonce), 'options.nonce', 'string');
+                XP.assertOption(XP.isVoid(options.query) || XP.isObject(options.query), 'options.query', 'Object');
+
+                // Cloning
+                let opts = XP.cloneDeep(options);
+
+                // Overriding
+                opts.command   = options.command || 'read';
+                opts.noChanges = Boolean(opts.noChanges || !XP.isDefined(opts.noChanges)) && !['watch'].includes(opts.command);
+                opts.noReply   = Boolean(opts.noReply) && !['read', 'watch'].includes(opts.command);
+                opts.nonce     = Boolean(opts.noReply) ? undefined : opts.nonce || XP.uuid();
+
+                // Polishing
+                Object.keys(opts.query || {}).forEach(key => {
+                    if (XP.isArray(opts.query[key])) { opts.query[key] = opts.query[key].filter(val => XP.isPrimitive(val)).map(val => XP.toString(val)).join(','); }
+                    if (!XP.isPrimitive(opts.query[key])) { delete opts.query[key]; }
+                });
+
+                // Reauthorizing
+                XP.attempt(next => options.noAuth ? next() : this.reauthorize(next), error => {
+
+                    // Preventing
+                    if (error) { callback(error); return; }
+
+                    // Executing
+                    this.protocol.request(opts, (error, result) => {
+
+                        // Preventing
+                        if (error || this.commands[opts.command] !== 'w') { callback(error, result); return; }
+
+                        // Firing
+                        this.fire('app-source-write', {command: opts.command, resource: opts.resource});
+
+                        // Callback
+                        callback(null, result);
+                    });
+                });
+            },
+
+            /*********************************************************************/
+
+            /**
+             * Submits an `authorize` request.
+             *
+             * @method authorize
+             * @param {Object} options
+             *   @param {Object} options.data
+             *   @param {boolean} [options.remember = false]
+             * @param {Function} [callback]
+             */
+            authorize(options, callback) {
+
+                // Preparing
+                if (XP.isVoid(callback)) { callback = function () {}; }
+
+                // Asserting
+                XP.assertArgument(XP.isObject(options), 1, 'Object');
+                XP.assertArgument(XP.isFunction(callback), 2, 'Function');
+                XP.assertOption(XP.isObject(options.data), 'options.data', 'Object');
+
+                // Executing
+                this.protocol.authorize(options, (error, token) => {
+
+                    // Preventing
+                    if (!XP.isFalsy(error)) { callback(error); return; }
+                    if (!XP.isObject(token)) { callback(new XP.ValidationError('token', 'Object')); return; }
+                    if (!XP.isString(token.accessToken, true)) { callback(new XP.ValidationError('token.accessToken', 'string')); return; }
+                    if (!XP.isVoid(token.expiresAt) && !XP.isDate(token.expiresAt = new Date(token.expiresAt))) { callback(new XP.ValidationError('token.expiresAt', 'number or string')); return; }
+                    if (!XP.isVoid(token.refreshToken) && !XP.isString(token.refreshToken, true)) { callback(new XP.ValidationError('token.refreshToken', 'string')); return; }
+
+                    // Ensuring
+                    this.ensure(`auth.${this.name}`, {
+                        accessToken: token.accessToken,
+                        expiresAt: token.expiresAt || null,
+                        refreshToken: token.refreshToken || null
+                    });
+
+                    // Storing
+                    localStorage[options.remember ? 'setItem' : 'removeItem'](`auth.${this.name}`, JSON.stringify(this.token));
+
+                    // Callback
+                    callback(null, this.token);
+                });
+            },
+
+            /**
+             * Submits a `reauthorize` request.
+             *
+             * @method reauthorize
+             * @param {Object} [options]
+             * @param {Function} [callback]
+             */
+            reauthorize(options, callback) {
+
+                // Preparing
+                if (XP.isFunction(options)) { callback = options; options = undefined; }
+                if (XP.isVoid(callback)) { callback = function () {}; }
+
+                // Asserting
+                XP.assertArgument(XP.isVoid(options) || XP.isObject(options), 1, 'Object');
+                XP.assertArgument(XP.isFunction(callback), 2, 'Function');
+
+                // Preventing
+                if (this.token && !this.isExpired(this.token)) { callback(null, this.token); return; }
+
+                // Restoring
+                this.restore(options, (error, token) => {
+
+                    // Preventing
+                    if (error || !token || !token.refreshToken || !this.isExpired(token)) { callback(error, this.token); return; }
+
+                    // Pushing callback
+                    if (this.push('tokenQueue', callback) > 1) { return; }
+
+                    // Executing
+                    this.protocol.reauthorize(options || {}, (error, token) => {
+
+                        // Overriding
+                        callback = error => this.ensure('tokenQueue', this.tokenQueue.filter(callback => { callback(error, this.token); }));
+
+                        // Preventing
+                        if (!XP.isFalsy(error)) { callback(error); return; }
+                        if (!XP.isObject(token)) { callback(new XP.ValidationError('token', 'Object')); return; }
+                        if (!XP.isString(token.accessToken, true)) { callback(new XP.ValidationError('token.accessToken', 'string')); return; }
+                        if (!XP.isVoid(token.expiresAt) && !XP.isDate(token.expiresAt = new Date(token.expiresAt))) { callback(new XP.ValidationError('token.expiresAt', 'number or string')); return; }
+                        if (!XP.isVoid(token.refreshToken) && !XP.isString(token.refreshToken, true)) { callback(new XP.ValidationError('token.refreshToken', 'string')); return; }
+
+                        // Ensuring
+                        this.ensure(`auth.${this.name}`, {
+                            accessToken: token.accessToken,
+                            expiresAt: token.expiresAt || null,
+                            refreshToken: token.refreshToken || null
+                        });
+
+                        // Storing
+                        if (localStorage.getItem(`auth.${this.name}`)) { localStorage.setItem(`auth.${this.name}`, JSON.stringify(this.token)); }
+
+                        // Callback
+                        callback(null, this.token);
+                    });
+                });
+            },
+
+            /**
+             * Submits a `register` request.
+             *
+             * @method register
+             * @param {Object} options
+             *   @param {Object} options.data
+             *   @param {boolean} [options.noReply = false]
+             * @param {Function} [callback]
+             */
+            register(options, callback) {
+
+                // Preparing
+                if (XP.isVoid(callback)) { callback = function () {}; }
+
+                // Asserting
+                XP.assertArgument(XP.isObject(options), 1, 'Object');
+                XP.assertArgument(XP.isFunction(callback), 3, 'Function');
+                XP.assertOption(XP.isObject(options.data), 'options.data', 'Object');
+
+                // Executing
+                this.protocol.register(options, callback);
+            },
+
+            /**
+             * Restores the token from local storage.
+             *
+             * @method restore
+             * @param {Object} [options]
+             * @param {Function} [callback]
+             */
+            restore(options, callback) {
+
+                // Preparing
+                if (XP.isFunction(options)) { callback = options; options = undefined; }
+                if (XP.isVoid(callback)) { callback = function () {}; }
+
+                // Asserting
+                XP.assertArgument(XP.isVoid(options) || XP.isObject(options), 1, 'Object');
+                XP.assertArgument(XP.isFunction(callback), 2, 'Function');
+
+                // Getting stored
+                let token = XP.parseJSON(localStorage.getItem(`auth.${this.name}`)) || null;
+
+                // Overriding
+                if (token) { token.expiresAt = new Date(token.expiresAt); }
+
+                // Ensuring
+                this.ensure(`auth.${this.name}`, token);
+
+                // Callback
+                callback(null, this.token);
+            },
+
+            /**
+             * Submits a `unauthorize` request.
+             *
+             * @method unauthorize
+             * @param {Object} [options]
+             *   @param {boolean} [options.noReply = false]
+             * @param {Function} [callback]
+             */
+            unauthorize(options, callback) {
+
+                // Preparing
+                if (XP.isFunction(options)) { callback = options; options = undefined; }
+                if (XP.isVoid(callback)) { callback = function () {}; }
+
+                // Asserting
+                XP.assertArgument(XP.isVoid(options) || XP.isObject(options), 1, 'Object');
+                XP.assertArgument(XP.isFunction(callback), 2, 'Function');
+
+                // Preventing
+                if (!this.token) { callback(); return; }
+
+                // Executing
+                this.protocol.unauthorize(options || {}, error => {
+
+                    // Preventing
+                    if (error) { callback(error); return; }
+
+                    // Removing stored
+                    localStorage.removeItem(`auth.${this.name}`);
+
+                    // Ensuring
+                    this.ensure(`auth.${this.name}`, null);
+
+                    // Callback
+                    callback();
+                });
+            },
+
+            /*********************************************************************/
+
+            /**
+             * Submits a `create` request.
+             *
+             * @method create
+             * @param {Object} options
+             *   @param {Object} options.data
+             *   @param {string} options.resource
+             *   @param {boolean} [options.noReply = false]
+             * @param {Function} [callback]
+             */
+            create(options, callback) {
+
+                // Preparing
+                if (XP.isVoid(callback)) { callback = function () {}; }
+
+                // Asserting
+                XP.assertArgument(XP.isObject(options), 1, 'Object');
+                XP.assertArgument(XP.isFunction(callback), 2, 'Function');
+                XP.assertOption(XP.isObject(options.data), 'options.data', 'Object');
+                XP.assertOption(XP.isString(options.resource, true), 'options.resource', 'string');
+
+                // Requesting
+                this.request(this._computeOptions('create', options), callback);
+            },
+
+            /**
+             * Submits a `delete` request.
+             *
+             * @method delete
+             * @param {Object} options
+             *   @param {string} options.resource
+             *   @param {string | Array} options.pk
+             *   @param {boolean} [options.noReply = false]
+             * @param {Function} [callback]
+             */
+            delete(options, callback) {
+
+                // Preparing
+                if (XP.isVoid(callback)) { callback = function () {}; }
+
+                // Asserting
+                XP.assertArgument(XP.isObject(options), 1, 'Object');
+                XP.assertArgument(XP.isFunction(callback), 2, 'Function');
+                XP.assertOption(XP.isString(options.resource, true), 'options.resource', 'string');
+                XP.assertOption(XP.isString(options.pk, true) || XP.isArray(options.pk, true), 'options.pk', 'string or Array');
+
+                // Requesting
+                this.request(this._computeOptions('delete', options), callback);
+            },
+
+            /**
+             * Submits a `read` request.
+             *
+             * @method read
+             * @param {Object} options
+             *   @param {string} options.resource
+             *   @param {string | Array} [options.pk]
+             *   @param {string | Array} [options.exclude]
+             *   @param {string | Array} [options.groupBy]
+             *   @param {string | Array} [options.include]
+             *   @param {string | Object} [options.where]
+             *   @param {string} [options.except]
+             *   @param {string} [options.order]
+             *   @param {string} [options.orderBy]
+             *   @param {number} [options.limit]
+             *   @param {number} [options.skip]
+             *   @param {boolean} [options.count = false]
+             *   @param {boolean} [options.distinct = false]
+             * @param {Function} [callback]
+             */
+            read(options, callback) {
+
+                // Preparing
+                if (XP.isVoid(callback)) { callback = function () {}; }
+
+                // Asserting
+                XP.assertArgument(XP.isObject(options), 1, 'Object');
+                XP.assertArgument(XP.isFunction(callback), 2, 'Function');
+                XP.assertOption(XP.isString(options.resource, true), 'options.resource', 'string');
+                XP.assertOption(XP.isVoid(options.pk) || XP.isString(options.pk, true) || XP.isArray(options.pk, true), 'options.pk', 'string or Array');
+                XP.assertOption(XP.isVoid(options.exclude) || XP.isString(options.exclude) || XP.isArray(options.exclude), 'options.exclude', 'string or Array');
+                XP.assertOption(XP.isVoid(options.groupBy) || XP.isString(options.groupBy) || XP.isArray(options.groupBy), 'options.groupBy', 'string or Array');
+                XP.assertOption(XP.isVoid(options.include) || XP.isString(options.include) || XP.isArray(options.include), 'options.include', 'string or Array');
+                XP.assertOption(XP.isVoid(options.where) || XP.isString(options.where) || XP.isObject(options.where), 'options.where', 'string or Object');
+                XP.assertOption(XP.isVoid(options.except) || XP.isString(options.except), 'options.except', 'string');
+                XP.assertOption(XP.isVoid(options.order) || XP.isString(options.order), 'options.order', 'string');
+                XP.assertOption(XP.isVoid(options.orderBy) || XP.isString(options.orderBy), 'options.orderBy', 'string');
+                XP.assertOption(XP.isVoid(options.limit) || XP.isInt(options.limit, true), 'options.limit', 'number');
+                XP.assertOption(XP.isVoid(options.skip) || XP.isInt(options.skip, true), 'options.skip', 'number');
+                XP.assertOption(XP.isVoid(options.count) || XP.isBoolean(options.count), 'options.count', 'boolean');
+                XP.assertOption(XP.isVoid(options.distinct) || XP.isBoolean(options.distinct), 'options.distinct', 'boolean');
+
+                // Requesting
+                this.request(this._computeOptions('read', options), callback);
+            },
+
+            /**
+             * Submits an `unwatch` request.
+             *
+             * @method unwatch
+             * @param {Object} options
+             *   @param {string} options.nonce
+             *   @param {string} options.resource
+             *   @param {boolean} [options.noReply = false]
+             * @param {Function} [callback]
+             */
+            unwatch(options, callback) {
+
+                // Preparing
+                if (XP.isVoid(callback)) { callback = function () {}; }
+
+                // Asserting
+                XP.assertArgument(XP.isObject(options), 1, 'Object');
+                XP.assertArgument(XP.isFunction(callback), 2, 'Function');
+                XP.assertOption(XP.isString(options.nonce, true), 'options.nonce', 'string');
+                XP.assertOption(XP.isString(options.resource, true), 'options.resource', 'string');
+
+                // Requesting
+                this.request(this._computeOptions('unwatch', options), callback);
+            },
+
+            /**
+             * Submits an `update` request.
+             *
+             * @method update
+             * @param {Object} options
+             *   @param {Object} options.data
+             *   @param {string} options.resource
+             *   @param {string | Array} options.pk
+             *   @param {boolean} [options.replace = false]
+             *   @param {boolean} [options.noReply = false]
+             * @param {Function} [callback]
+             */
+            update(options, callback) {
+
+                // Preparing
+                if (XP.isVoid(callback)) { callback = function () {}; }
+
+                // Asserting
+                XP.assertArgument(XP.isObject(options), 1, 'Object');
+                XP.assertArgument(XP.isFunction(callback), 2, 'Function');
+                XP.assertOption(XP.isObject(options.data, true), 'options.data', 'Object');
+                XP.assertOption(XP.isString(options.resource, true), 'options.resource', 'string');
+                XP.assertOption(XP.isString(options.pk, true) || XP.isArray(options.pk, true), 'options.pk', 'string or Array');
+                XP.assertOption(XP.isVoid(options.replace) || XP.isBoolean(options.replace), 'options.replace', 'boolean');
+
+                // Requesting
+                this.request(this._computeOptions('update', options), callback);
+            },
+
+            /**
+             * Submits a `watch` request.
+             *
+             * @method watch
+             * @param {Object} options
+             *   @param {string} options.nonce
+             *   @param {string} options.resource
+             *   @param {string | Array} [options.pk]
+             *   @param {string | Array} [options.exclude]
+             *   @param {string | Array} [options.include]
+             *   @param {string | Object} [options.where]
+             *   @param {string} [options.except]
+             *   @param {string} [options.order]
+             *   @param {string} [options.orderBy]
+             *   @param {number} [options.limit]
+             *   @param {number} [options.skip]
+             *   @param {boolean} [options.changes = false]
+             * @param {Function} [callback]
+             */
+            watch(options, callback) {
+
+                // Preparing
+                if (XP.isVoid(callback)) { callback = function () {}; }
+
+                // Asserting
+                XP.assertArgument(XP.isObject(options), 1, 'Object');
+                XP.assertArgument(XP.isFunction(callback), 2, 'Function');
+                XP.assertOption(XP.isString(options.nonce, true), 'options.nonce', 'string');
+                XP.assertOption(XP.isString(options.resource, true), 'options.resource', 'string');
+                XP.assertOption(XP.isVoid(options.pk) || XP.isString(options.pk, true) || XP.isArray(options.pk, true), 'options.pk', 'string or Array');
+                XP.assertOption(XP.isVoid(options.exclude) || XP.isString(options.exclude) || XP.isArray(options.exclude), 'options.exclude', 'string or Array');
+                XP.assertOption(XP.isVoid(options.include) || XP.isString(options.include) || XP.isArray(options.include), 'options.include', 'string or Array');
+                XP.assertOption(XP.isVoid(options.where) || XP.isString(options.where) || XP.isObject(options.where), 'options.where', 'string or Object');
+                XP.assertOption(XP.isVoid(options.except) || XP.isString(options.except), 'options.except', 'string');
+                XP.assertOption(XP.isVoid(options.order) || XP.isString(options.order), 'options.order', 'string');
+                XP.assertOption(XP.isVoid(options.orderBy) || XP.isString(options.orderBy), 'options.orderBy', 'string');
+                XP.assertOption(XP.isVoid(options.limit) || XP.isInt(options.limit, true), 'options.limit', 'number');
+                XP.assertOption(XP.isVoid(options.skip) || XP.isInt(options.skip, true), 'options.skip', 'number');
+                XP.assertOption(XP.isVoid(options.changes) || XP.isBoolean(options.changes), 'options.changes', 'boolean');
+
+                // Requesting
+                this.request(this._computeOptions('watch', options), callback);
+            },
+
+            /*********************************************************************/
+
+            // OBSERVERS
+            observers: [
+                '_appChanged(app)',
+                '_shellChanged(shell)'
+            ],
+
+            // PROPERTIES
+            properties: {
+
+                /**
+                 * If set to true, the current token is set.
+                 *
+                 * @attribute authenticated
+                 * @type boolean
+                 * @default false
+                 * @notifies
+                 * @readonly
+                 */
+                authenticated: {
+                    computed: 'isTruthy(token)',
+                    notify: true,
+                    reflectToAttribute: true,
+                    type: Boolean,
+                    value: false
+                },
+
+                /**
+                 * The source's name.
+                 *
+                 * @attribute name
+                 * @type string
+                 * @default ""
+                 */
+                name: {
+                    reflectToAttribute: true,
+                    type: String,
+                    value: ''
+                },
+
+                /**
+                 * The source's protocol.
+                 *
+                 * @attribute protocol
+                 * @type Element
+                 * @readonly
+                 */
+                protocol: {
+                    readOnly: true,
+                    slave: '.protocol',
+                    value: null
+                },
+
+                /**
+                 * The source's readers.
+                 *
+                 * @attribute readers
+                 * @type Array
+                 * @readonly
+                 */
+                readers: {
+                    readOnly: true,
+                    slaves: '.reader',
+                    value() { return []; }
+                },
+
+                /**
+                 * The current token.
+                 *
+                 * @attribute token
+                 * @type Object
+                 * @readonly
+                 */
+                token: {
+                    computed: '_computeToken(auth, name, auth.*)',
+                    type: Object,
+                    value: null
+                },
+
+                /**
+                 * The token's reauthorization queue.
+                 *
+                 * @attribute token-queue
+                 * @type Array
+                 * @readonly
+                 */
+                tokenQueue: {
+                    readOnly: true,
+                    type: Array,
+                    value: function () { return []; }
+                }
+            },
+
+            /*********************************************************************/
+
+            /**
+             * The map of supported commands.
+             *
+             * @property commands
+             * @type Object
+             * @readonly
+             */
+            commands: {
+                create: 'w',
+                delete: 'w',
+                read: 'r',
+                unwatch: 'r',
+                update: 'w',
+                watch: 'r'
+            },
+
+            /**
+             * The list of reserved keywords.
+             *
+             * @property keywords
+             * @type Array
+             * @readonly
+             */
+            keywords: ['data', 'nonce', 'noReply', 'resource', 'where'],
+
+            /*********************************************************************/
+
+            // COMPUTER
+            _computeOptions(command, options) {
+
+                // Let
+                let query = XP.omit(options = options || {}, this.keywords);
+
+                // Flattening
+                if (XP.isObject(options.where)) { Object.assign(query, options.where); }
+                if (XP.isString(options.where)) { Object.assign(query, XP.parseQueryString(options.where)); }
+
+                // Returning
+                return {
+                    command: command,
+                    data: options.data,
+                    nonce: options.nonce,
+                    noReply: options.noReply,
+                    query: query,
+                    resource: options.resource
+                };
+            },
+
+            // COMPUTER
+            _computeToken(auth, name) {
+                return auth && auth[name] || null;
+            },
+
+            /*********************************************************************/
+
+            // OBSERVER
+            _appChanged() {
+
+                // Restoring
+                this.debounce('restoring', () => this.app && this.restore());
+            },
+
+            // OBSERVER
+            _shellChanged(post) {
+
+                // Listening
+                this[post ? 'listen' : 'unlisten'](window, 'app-authorize', '_handleAuthorize');
+                this[post ? 'listen' : 'unlisten'](window, 'app-reauthorize', '_handleReauthorize');
+                this[post ? 'listen' : 'unlisten'](window, 'app-register', '_handleRegister');
+                this[post ? 'listen' : 'unlisten'](window, 'app-unauthorize', '_handleUnauthorize');
+            },
+
+            /*********************************************************************/
+
+            // HANDLER
+            _handleAuthorize(event) {
+
+                // Preventing
+                if (event.defaultPrevented || event.detail.source !== this.name) { return; }
+
+                // Authorizing
+                this.authorize(event.detail, event.detail.callback);
+            },
+
+            // HANDLER
+            _handleReauthorize(event) {
+
+                // Preventing
+                if (event.defaultPrevented || event.detail.source !== this.name) { return; }
+
+                // Reauthorizing
+                this.reauthorize(event.detail.callback);
+            },
+
+            // HANDLER
+            _handleRegister(event) {
+
+                // Preventing
+                if (event.defaultPrevented || event.detail.source !== this.name) { return; }
+
+                // Registering
+                this.register(event.detail, event.detail.callback);
+            },
+
+            // HANDLER
+            _handleUnauthorize(event) {
+
+                // Preventing
+                if (event.defaultPrevented || event.detail.source !== this.name) { return; }
+
+                // Unauthorizing
+                this.unauthorize(event.detail.callback);
+            }
+        });
+    </script>
+
+</dom-module>

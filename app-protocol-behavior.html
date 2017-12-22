@@ -1,0 +1,184 @@
+<!--
+@license
+Copyright (c) 2017 The expand.js authors. All rights reserved.
+This code may only be used under the BSD style license found at https://expandjs.github.io/LICENSE.txt
+The complete set of authors may be found at https://expandjs.github.io/AUTHORS.txt
+The complete set of contributors may be found at https://expandjs.github.io/CONTRIBUTORS.txt
+-->
+
+<!--
+A behavior used to implement `auth` and `source` strategies.
+
+@behavior app-protocol-behavior
+@since 1.0.0
+@category behaviors
+@description A behavior used to implement `auth` and `source` strategies
+@keywords expandjs, web app, web components
+
+@homepage https://expandjs.com/components/app-protocol-behavior
+@repository https://github.com/expandjs/app-behaviors
+@source https://github.com/expandjs/app-behaviors/blob/master/app-protocol-behavior.html
+
+@behavior app-receiver-behavior /bower_components/app-behaviors/app-receiver-behavior.html
+-->
+
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../expandjs/expandjs.html">
+<link rel="import" href="app-receiver-behavior.html">
+
+<script>
+
+    /**
+     * @polymerBehavior Polymer.APPProtocolBehaviorImp
+     */
+    Polymer.APPProtocolBehaviorImp = {
+
+        // CLASSES
+        classes: ['protocol'],
+
+        /*********************************************************************/
+
+        /**
+         * Must be redefined to set the `request` strategy.
+         *
+         * @method request
+         * @param {Object} options
+         *   @param {string} options.command
+         *   @param {string} options.resource
+         *   @param {Object} [options.data]
+         *   @param {string} [options.nonce]
+         *   @param {Object} [options.query]
+         *   @param {boolean} [options.noChanges = true]
+         *   @param {boolean} [options.noReply = false]
+         * @param {Function} callback
+         * @abstract
+         */
+        request(options, callback) {
+
+            // Callback
+            callback(new XP.AbstractError('request'));
+        },
+
+        /*********************************************************************/
+
+        /**
+         * Must be redefined to set the `authorize` strategy.
+         *
+         * @method authorize
+         * @param {Object} options
+         *   @param {Object} options.data
+         *   @param {boolean} [options.remember = false]
+         * @param {Function} callback
+         * @abstract
+         */
+        authorize(options, callback) {
+
+            // Callback
+            callback(new XP.AbstractError('authorize'));
+        },
+
+        /**
+         * Must be redefined to set the `reauthorize` strategy.
+         *
+         * @method reauthorize
+         * @param {Object} options
+         * @param {Function} callback
+         * @abstract
+         */
+        reauthorize(options, callback) {
+
+            // Callback
+            callback(new XP.AbstractError('reauthorize'));
+        },
+
+        /**
+         * Must be redefined to set the `register` strategy.
+         *
+         * @method register
+         * @param {Object} options
+         *   @param {Object} options.data
+         *   @param {boolean} [options.noReply = false]
+         * @param {Function} callback
+         * @abstract
+         */
+        register(options, callback) {
+
+            // Callback
+            callback(new XP.AbstractError('register'));
+        },
+
+        /**
+         * Must be redefined to set the `unauthorize` strategy.
+         *
+         * @method unauthorize
+         * @param {Object} options
+         *   @param {boolean} [options.noReply = false]
+         * @param {Function} callback
+         * @abstract
+         */
+        unauthorize(options, callback) {
+
+            // Callback
+            callback(new XP.AbstractError('unauthorize'));
+        },
+
+        /*********************************************************************/
+
+        // PROPERTIES
+        properties: {
+
+            /**
+             * Returns true if `token` is expired.
+             *
+             * @method isExpired
+             * @param {Object} token
+             * @returns boolean
+             */
+            isExpired: {
+                computed: 'computeValue(source, "isExpired")',
+                type: Function
+            },
+
+            /**
+             * The protocol's source.
+             *
+             * @attribute source
+             * @type Element
+             * @readonly
+             */
+            source: {
+                master: '.source',
+                readOnly: true,
+                value: null
+            },
+
+            /**
+             * The current token.
+             *
+             * @attribute token
+             * @type Object
+             * @readonly
+             */
+            token: {
+                computed: '_computeToken(auth, source, auth.*)',
+                type: Object,
+                value: null
+            }
+        },
+
+        /*********************************************************************/
+
+        // COMPUTER
+        _computeToken(auth, source) {
+            return auth && auth[source && source.name] || null;
+        }
+    };
+
+    /**
+     * @polymerBehavior Polymer.APPProtocolBehavior
+     */
+    Polymer.APPProtocolBehavior = [
+        Polymer.APPReceiverBehavior,
+        Polymer.APPProtocolBehaviorImp
+    ];
+</script>

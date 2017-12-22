@@ -7,17 +7,17 @@ The complete set of contributors may be found at https://expandjs.github.io/CONT
 -->
 
 <!--
-A web component used to provide automated source reading.
+A web component used to provide automated source watching.
 
-@element app-reader
-@since 1.0.0
+@element app-watcher
+@since 1.3.0
 @category functionality
-@description A web component used to automate source reading
+@description A web component used to automate source watching
 @keywords expandjs, web app, web components
 
-@homepage https://expandjs.com/components/app-reader
+@homepage https://expandjs.com/components/app-watcher
 @repository https://github.com/expandjs/app-behaviors
-@source https://github.com/expandjs/app-behaviors/blob/master/app-reader.html
+@source https://github.com/expandjs/app-behaviors/blob/master/app-watcher.html
 
 @behavior app-receiver-behavior /bower_components/app-behaviors/app-receiver-behavior.html
 -->
@@ -26,7 +26,7 @@ A web component used to provide automated source reading.
 <link rel="import" href="../expandjs/expandjs.html">
 <link rel="import" href="app-receiver-behavior.html">
 
-<dom-module id="app-reader">
+<dom-module id="app-watcher">
 
     <template strip-whitespace>
 
@@ -42,7 +42,7 @@ A web component used to provide automated source reading.
         Polymer({
 
             // ELEMENT
-            is: 'app-reader',
+            is: 'app-watcher',
 
             // BEHAVIORS
             behaviors: [
@@ -50,24 +50,12 @@ A web component used to provide automated source reading.
             ],
 
             // CLASSES
-            classes: ['reader'],
+            classes: ['watcher'],
 
             /*********************************************************************/
 
             /**
-             * Fired when the reader is about to refresh due to a successful write.
-             *
-             * @event app-reader-refresh
-             * @param {string} command
-             * @param {Array | Object | number} current
-             * @bubbles
-             * @cancelable
-             */
-
-            /*********************************************************************/
-
-            /**
-             * Refreshes the reader.
+             * Refreshes the watcher.
              *
              * @method refresh
              * @param {Function} [callback]
@@ -86,8 +74,8 @@ A web component used to provide automated source reading.
                 // Preventing
                 if (!this.readable || !this.resource || !this.source) { callback(); return; }
 
-                // Reading
-                this.source.read(this.options, (error, data) => {
+                // Watching
+                this.source.watch(this.options, (error, data) => {
 
                     // Preparing
                     if (this.keyBy && XP.isArray(data)) { data = XP.keyBy(data, item => item[this.keyBy]); }
@@ -102,7 +90,7 @@ A web component used to provide automated source reading.
             },
 
             /**
-             * Resets the reader.
+             * Resets the watcher.
              *
              * @method reset
              * @param {Function} [callback]
@@ -128,23 +116,11 @@ A web component used to provide automated source reading.
             // OBSERVERS
             observers: [
                 '_optionsChanged(app, keyBy, options, refresher, source)',
-                '_optionsChanger(count, distinct, except, exclude, groupBy, include, limit, order, orderBy, pk, resource, skip, where)'
+                '_optionsChanger(except, exclude, include, limit, nonce, order, orderBy, pk, resource, skip, where)'
             ],
 
             // PROPERTIES
             properties: {
-
-                /**
-                 * If set to true, the data count will be returned instead of data.
-                 *
-                 * @attribute count
-                 * @type boolean
-                 * @default false
-                 */
-                count: {
-                    type: Boolean,
-                    value: false
-                },
 
                 /**
                  * The received data.
@@ -161,7 +137,7 @@ A web component used to provide automated source reading.
                 },
 
                 /**
-                 * The amount of ms to wait before reading.
+                 * The amount of ms to wait before watching.
                  *
                  * @attribute delay
                  * @type number
@@ -170,18 +146,6 @@ A web component used to provide automated source reading.
                 delay: {
                     type: Number,
                     value: 0
-                },
-
-                /**
-                 * If set to true, `data` will be duplicate free.
-                 *
-                 * @attribute distinct
-                 * @type boolean
-                 * @default false
-                 */
-                distinct: {
-                    type: Boolean,
-                    value: false
                 },
 
                 /**
@@ -221,17 +185,6 @@ A web component used to provide automated source reading.
                 },
 
                 /**
-                 * The field used to group data.
-                 *
-                 * @attribute group-by
-                 * @type string
-                 */
-                groupBy: {
-                    type: String,
-                    value: null
-                },
-
-                /**
                  * The fields to include.
                  *
                  * @attribute include
@@ -266,7 +219,7 @@ A web component used to provide automated source reading.
                 },
 
                 /**
-                 * The maximum number of items to read.
+                 * The maximum number of items to watch.
                  *
                  * @attribute limit
                  * @type number
@@ -277,7 +230,18 @@ A web component used to provide automated source reading.
                 },
 
                 /**
-                 * The reader options.
+                 * The watcher's identifier.
+                 *
+                 * @attribute nonce
+                 * @type string
+                 */
+                nonce: {
+                    type: String,
+                    value() { return XP.uuid(); }
+                },
+
+                /**
+                 * The watcher's options.
                  *
                  * @attribute options
                  * @type Object
@@ -312,7 +276,7 @@ A web component used to provide automated source reading.
                 },
 
                 /**
-                 * The primary key of the item to read.
+                 * The primary key of the item to watch.
                  *
                  * @attribute pk
                  * @type string
@@ -327,7 +291,7 @@ A web component used to provide automated source reading.
                  *
                  * - `default`: data will be emptied only when the request options change
                  * - `always`: data will never be emptied, it will only be replaced by new data
-                 * - `none`: data will be emptied before each read
+                 * - `none`: data will be emptied before each watch
                  *
                  * @attribute preserve
                  * @type "always" | "default" | "none"
@@ -338,7 +302,7 @@ A web component used to provide automated source reading.
                 },
 
                 /**
-                 * If set to true, the reader is able to read.
+                 * If set to true, the watcher is able to watch.
                  *
                  * @attribute readable
                  * @type boolean
@@ -364,7 +328,7 @@ A web component used to provide automated source reading.
                 },
 
                 /**
-                 * The resource to read.
+                 * The resource to watch.
                  *
                  * @attribute resource
                  * @type string
@@ -386,7 +350,7 @@ A web component used to provide automated source reading.
                 },
 
                 /**
-                 * The reader's source.
+                 * The watcher's source.
                  *
                  * @attribute source
                  * @type Element
@@ -399,7 +363,20 @@ A web component used to provide automated source reading.
                 },
 
                 /**
-                 * The filter applied when reading.
+                 * The current stream.
+                 *
+                 * @attribute stream
+                 * @type Object
+                 * @readonly
+                 */
+                stream: {
+                    computed: '_computeStream(nonce, options, readable, resource)',
+                    observer: '_streamChanged',
+                    type: Object
+                },
+
+                /**
+                 * The filter applied when watching.
                  *
                  * @attribute where
                  * @type string
@@ -415,6 +392,11 @@ A web component used to provide automated source reading.
             // COMPUTER
             _computeRefresher(token) {
                 return token && !this.isExpired(token) ? token.refreshToken || token.accessToken : null;
+            },
+
+            // COMPUTER
+            _computeStream(nonce, options, readable, resource) {
+                return nonce && options && readable && resource ? JSON.stringify({nonce, resource}) : null;
             },
 
             /*********************************************************************/
@@ -433,7 +415,7 @@ A web component used to provide automated source reading.
             _optionsChanger() {
 
                 // Let
-                let keys = ['count', 'distinct', 'except', 'exclude', 'groupBy', 'include', 'limit', 'order', 'orderBy', 'pk', 'resource', 'skip', 'where'];
+                let keys = ['count', 'distinct', 'except', 'exclude', 'groupBy', 'include', 'limit', 'nonce', 'order', 'orderBy', 'pk', 'resource', 'skip', 'where'];
 
                 // Ensuring
                 this.ensure('options', keys.reduce((options, key) => Object.assign(options, XP.isUseful(this[key]) && !XP.isFalse(this[key]) && {[key]: this[key]}), {}));
@@ -449,9 +431,15 @@ A web component used to provide automated source reading.
             // OBSERVER
             _sourceChanged(post, pre) {
 
-                // Listening
-                if (pre) { this.unlisten(pre, 'app-source-write', '_handleWrite'); }
-                if (post) { this.listen(post, 'app-source-write', '_handleWrite'); }
+                // Unwatching
+                if (pre && this.stream) { pre.unwatch(JSON.parse(this.stream)); }
+            },
+
+            // OBSERVER
+            _streamChanged(post, pre) {
+
+                // Unwatching
+                if (pre && this.source) { this.source.unwatch(JSON.parse(pre)); }
             },
 
             /*********************************************************************/
@@ -461,18 +449,6 @@ A web component used to provide automated source reading.
 
                 // Debouncing
                 this.refresh = XP.debounce(this.refresh.bind(this));
-            },
-
-            /*********************************************************************/
-
-            // HANDLER
-            _handleWrite(event) {
-
-                // Firing
-                if (this.fire('app-reader-refresh', {command: event.detail.command, current: this.data}, {cancelable: true}).defaultPrevented) { return; }
-
-                // Refreshing
-                if (this.resource === event.detail.resource) { this.refresh(); }
             }
         });
     </script>

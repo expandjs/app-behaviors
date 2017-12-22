@@ -1,0 +1,88 @@
+<!--
+@license
+Copyright (c) 2017 The expand.js authors. All rights reserved.
+This code may only be used under the BSD style license found at https://expandjs.github.io/LICENSE.txt
+The complete set of authors may be found at https://expandjs.github.io/AUTHORS.txt
+The complete set of contributors may be found at https://expandjs.github.io/CONTRIBUTORS.txt
+-->
+
+<!--
+A web component used to add the `notify` command on the parent store.
+
+@element cmd-notify
+@since 1.0.0
+@category functionality
+@description A web component used to add the `notify` command on the parent store
+@keywords expandjs, web app, web components
+
+@homepage https://expandjs.com/components/cmd-notify
+@repository https://github.com/expandjs/app-behaviors
+@source https://github.com/expandjs/app-behaviors/blob/master/cmd-notify.html
+
+@behavior app-command-behavior /bower_components/app-behaviors/app-command-behavior.html
+-->
+
+<link rel="import" href="../../polymer/polymer.html">
+<link rel="import" href="../../expandjs/expandjs.html">
+<link rel="import" href="../../mat-elements/mat-snackbar.html">
+<link rel="import" href="../../xp-elements/xp-overlay-injector.html">
+<link rel="import" href="../app-command-behavior.html">
+
+<dom-module id="cmd-notify">
+
+    <template strip-whitespace>
+
+        <style>
+            :host {
+                display: none !important;
+            }
+        </style>
+
+    </template>
+
+    <script>
+        Polymer({
+
+            // ELEMENT
+            is: 'cmd-notify',
+
+            // BEHAVIORS
+            behaviors: [
+                Polymer.APPCommandBehavior
+            ],
+
+            /*********************************************************************/
+
+            /**
+             * Implements the `execute` strategy.
+             *
+             * @method _execute
+             * @param {Object} options
+             *   @param {string} options.label
+             *   @param {string} [options.button]
+             *   @param {Function} [options.callback]
+             * @param {Function} [callback]
+             * @private
+             */
+            _execute(options, callback) {
+
+                // Asserting
+                if (!XP.isString(options.label, true)) { callback(new XP.ValidationError('options.label', 'string')); return; }
+                if (!XP.isVoid(options.button) && !XP.isString(options.button)) { callback(new XP.ValidationError('options.button', 'string')); return; }
+                if (!XP.isVoid(options.callback) && !XP.isFunction(options.callback)) { callback(new XP.ValidationError('options.callback', 'Function')); return; }
+
+                // Let
+                let snackbar = document.createElement('mat-snackbar');
+
+                // Ensuring
+                this.ensure('button', options.button, snackbar);
+                this.ensure('callback', options.callback, snackbar);
+                this.ensure('label', options.label, snackbar);
+
+                // Injecting
+                callback(null, Polymer.XPOverlayInjectorImp.inject.call(this, snackbar));
+            }
+        });
+    </script>
+
+</dom-module>

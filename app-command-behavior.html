@@ -39,14 +39,41 @@ A behavior used to add command capabilities on a web component.
         /*********************************************************************/
 
         /**
-         * Must be redefined to set the execution strategy.
+         * Executes the command.
          *
          * @method execute
          * @param {Object} [options]
          * @param {Function} [callback]
+         */
+        execute(strategy, options, callback) {
+
+            // Preparing
+            if (XP.isFunction(options)) { callback = options; options = {}; }
+            if (XP.isVoid(callback)) { callback = function () {}; }
+
+            // Asserting
+            XP.assertArgument(XP.isVoid(options) || XP.isObject(options), 1, 'Object');
+            XP.assertArgument(XP.isFunction(callback), 2, 'Function');
+
+            // Calling
+            return strategy.call(this, options || {}, callback);
+        },
+
+        /*********************************************************************/
+
+        /**
+         * Must be redefined to set the `execute` strategy.
+         *
+         * @method _execute
+         * @param {Object} options
+         * @param {Function} callback
          * @abstract
          */
-        execute(options, callback) {},
+        _execute(options, callback) {
+
+            // Callback
+            callback(new XP.AbstractError('_execute'));
+        },
 
         /*********************************************************************/
 
@@ -83,24 +110,8 @@ A behavior used to add command capabilities on a web component.
         // OBSERVER
         __storeChanged(post) {
 
-            // Checking
-            if (!post) { return; }
-
-            // Let
-            let execute = this.execute;
-
             // Setting
-            post[this.name] = function (options, callback) {
-
-                // Preparing
-                if (XP.isFunction(options)) { callback = options; options = {}; }
-
-                // Asserting
-                XP.assertArgument(XP.isVoid(options) || XP.isObject(options), 1, 'Object');
-
-                // Calling
-                return execute.call(this, options || {}, XP.isFunction(callback) ? callback : function () {});
-            };
+            if (post) { post[this.name] = this.execute.bind(post, this._execute); }
         }
     };
 
