@@ -92,6 +92,21 @@ A behavior used to add receiving capabilities on a web component.
             },
 
             /**
+             * If set to true, the application's offline.
+             *
+             * @attribute offline
+             * @type boolean
+             * @default false
+             * @readonly
+             */
+            offline: {
+                computed: 'computeFrom(app.offline)',
+                reflectToAttribute: true,
+                type: Boolean,
+                value: false
+            },
+
+            /**
              * The application's namespace.
              *
              * @attribute namespace
@@ -135,10 +150,6 @@ A behavior used to add receiving capabilities on a web component.
 
         // OBSERVER
         __shellChanged(post) {
-
-            // Listening
-            this[post ? 'listen' : 'unlisten'](window, 'offline', '__handleOffline');
-            this[post ? 'listen' : 'unlisten'](window, 'online', '__handleOffline');
 
             // Ensuring
             this.async(() => this.ensure('store', post && post.store));
